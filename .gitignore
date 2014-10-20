@@ -1,2 +1,8 @@
 matmul-bench
 *~
+*.ilk
+*.obj
+*.exe
+*.pdb
+*.sln
+*.suo

@@ -4,6 +4,7 @@
 #include <math.h>
 #include <malloc.h>
 #include <omp.h>
+#include <emmintrin.h>
 
 enum bench_code {
     BENCH_SIMPLE_C,
@@ -22,10 +23,45 @@ static float *out_simple_omp;
 static float *out_block_omp;
 static float *out_block_omp_unroll;
 
+#ifdef _WIN32
+#include <windows.h>
+
+LARGE_INTEGER freq;
+
+void
+sec_init()
+{
+    QueryPerformanceFrequency(&freq);
+}
+
+double
+sec(void)
+{
+    LARGE_INTEGER c;
+    QueryPerformanceCounter(&c);
+
+    return c.QuadPart/ (double)freq.QuadPart;
+
+}
+
+double
+drand(void)
+{
+    unsigned int v;
+    rand_s(&v);
+
+    return v / (double)UINT_MAX;
+}
+
+#define srand(v)
 
 
-float
-sec()
+
+#else
+#define sec_init()
+
+double
+sec(void)
 {
     struct timespec ts;
 
@@ -34,10 +70,18 @@ sec()
     return (ts.tv_sec) + (ts.tv_nsec / (1000.0*1000.0*1000.0));
 }
 
+#define drand drand48
+#define srand srand48
+
+#define _aligned_malloc(sz,a) memalign(a,sz)
+#define _aligned_free(p) free(p)
+
+#endif
+
 static void
-matmul_simple(float *restrict out,
-              const float * restrict inL,
-              const float * restrict inR,
+matmul_simple(float *__restrict out,
+              const float * __restrict inL,
+              const float * __restrict inR,
               int n)
 {
     for (int i=0; i<n; i++) {
@@ -50,18 +94,19 @@ matmul_simple(float *restrict out,
             out[i*n+j] = v;
         }
     }
-	
+
     return;
 }
 
 static void
-matmul_simple_omp(float * restrict out,
-                  const float * restrict inL,
-                  const float * restrict inR,
+matmul_simple_omp(float * __restrict out,
+                  const float * __restrict inL,
+                  const float * __restrict inR,
                   int n)
 {
+    int i;
 #pragma omp parallel for
-    for (int i=0; i<n; i++) {
+    for (i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             float v = 0;
             for (int k=0; k<n; k++) {
@@ -75,15 +120,16 @@ matmul_simple_omp(float * restrict out,
 }
 
 static void
-matmul_block_omp(float * restrict out,
-                 const float* restrict inL,
-                 const float* restrict inR,
+matmul_block_omp(float * __restrict out,
+                 const float* __restrict inL,
+                 const float* __restrict inR,
                  unsigned int n)
 {
     unsigned int block_size = 16;
+    int i0;
 
 #pragma omp parallel for
-    for (int i0=0; i0<n; i0+=block_size) {
+    for (i0=0; i0<n; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
             for (int bi=0; bi<block_size; bi++) {
                 for (int bj=0; bj<block_size; bj++) {
@@ -121,15 +167,16 @@ matmul_block_omp(float * restrict out,
 
 
 static void
-matmul_block_omp_unroll(float * restrict out,
-                        const float* restrict inL,
-                        const float* restrict inR,
+matmul_block_omp_unroll(float * __restrict out,
+                        const float* __restrict inL,
+                        const float* __restrict inR,
                         unsigned int n)
 {
     unsigned int block_size = 16;
+    int i0;
 
-#pragma omp parallel for
-    for (int i0=0; i0<n; i0+=block_size) {
+#pragma omp parallel for schedule(dynamic)
+    for (i0=0; i0<n; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
             for (int bi=0; bi<block_size; bi++) {
                 for (int bj=0; bj<block_size; bj++) {
@@ -155,24 +202,17 @@ matmul_block_omp_unroll(float * restrict out,
                         int j = j0+bj;
 
                         const float *lp_0 = inL + i_0*n + k0;
-                        const float *lp_1 = inL + i_1*n + k0;
-                        const float *lp_2 = inL + i_2*n + k0;
-                        const float *lp_3 = inL + i_3*n + k0;
-
                         const float *rp = inR + k0*n + j;
 
                         for (int bk=0; bk<block_size; bk++) {
                             //int k = k0+bk;
 
-                            v_0 += *lp_0 * *rp;
-                            v_1 += *lp_1 * *rp;
-                            v_2 += *lp_2 * *rp;
-                            v_3 += *lp_3 * *rp;
+                            v_0 += lp_0[0*n] * *rp;
+                            v_1 += lp_0[1*n] * *rp;
+                            v_2 += lp_0[2*n] * *rp;
+                            v_3 += lp_0[3*n] * *rp;
 
                             lp_0 += 1;
-                            lp_1 += 1;
-                            lp_2 += 1;
-                            lp_3 += 1;
 
                             rp += n;
                         }
@@ -269,30 +309,36 @@ bench(void)
 int
 main(int argc, char **argv)
 {
-    n = atoi(argv[1]);
+    sec_init();
+
+    n = 512;
+
+    if (argc >= 2) {
+        n = atoi(argv[1]);
+    }
 
     if (argc >= 3) {
         omp_set_num_threads(atoi(argv[2]));
     }
 
-    in0 = malloc(n*n * sizeof(float));
-    in1 = malloc(n*n * sizeof(float));
+    in0 = _aligned_malloc(n*n * sizeof(float), 64);
+    in1 = _aligned_malloc(n*n * sizeof(float), 64);
 
-    out_simple = malloc(n*n * sizeof(float));
-    out_simple_omp = malloc(n*n * sizeof(float));
-    out_block_omp = memalign(64, n*n * sizeof(float));
-    out_block_omp_unroll = memalign(64, n*n * sizeof(float));
+    out_simple = _aligned_malloc(n*n * sizeof(float), 64);
+    out_simple_omp = _aligned_malloc(n*n * sizeof(float), 64);
+    out_block_omp = _aligned_malloc(n*n * sizeof(float), 64);
+    out_block_omp_unroll = _aligned_malloc(n*n * sizeof(float), 64);
 
     printf("n=%d\n", n);
     printf("total nelem=%d, mat size=%f[MB]\n",
            n*n,
            (n*n)/(1024.0*1024.0)*sizeof(float));
 
-    srand48(100);
+    srand(100);
 
     for (int i=0; i<n*n; i++) {
-        in0[i] = drand48()+1.0;
-        in1[i] = drand48()+1.0;
+        in0[i] = drand()+1.0;
+        in1[i] = drand()+1.0;
     }
 
     dump_mat(n, in0);
@@ -301,10 +347,10 @@ main(int argc, char **argv)
     bench();
     bench();
 
-    free(in0);
-    free(in1);
-    free(out_simple);
-    free(out_simple_omp);
-    free(out_block_omp);
-    free(out_block_omp_unroll);
+    _aligned_free(in0);
+    _aligned_free(in1);
+    _aligned_free(out_simple);
+    _aligned_free(out_simple_omp);
+    _aligned_free(out_block_omp);
+    _aligned_free(out_block_omp_unroll);
 }
