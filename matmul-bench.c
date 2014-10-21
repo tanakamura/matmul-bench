@@ -156,39 +156,83 @@ matmul_block_omp(float * __restrict out,
                  const float* __restrict inR,
                  unsigned int n)
 {
-    unsigned int block_size = 16;
-    int i0;
+    unsigned int block_size = 32;
+    int i0, i;
+
+#pragma omp parallel for
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+
 
 #pragma omp parallel for
     for (i0=0; i0<n; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
-            for (int bi=0; bi<block_size; bi++) {
-                for (int bj=0; bj<block_size; bj++) {
-                    int i = i0+bi;
-                    int j = j0+bj;
-                    out[i*n+j] = 0;
-                }
-            }
-
             for (int k0=0; k0<n; k0+=block_size) {
                 for (int bi=0; bi<block_size; bi++) {
                     int i = i0+bi;
 
-                    for (int bj=0; bj<block_size; bj++) {
-                        float v = 0;
-                        int j = j0+bj;
+                    for (int bk=0; bk<block_size; bk++) {
+                        int k = k0+bk;
 
-                        const float *lp = inL + i*n + k0;
-                        const float *rp = inR + k0*n + j;
+                        float lik = inL[i*n + k];
 
-                        for (int bk=0; bk<block_size; bk++) {
-                            //int k = k0+bk;
-                            v += *lp * *rp;
-                            lp += 1;
-                            rp += n;
+                        for (int bj=0; bj<block_size; bj++) {
+                            int j = j0+bj;
+                            out[i*n + j] += lik * inR[k*n + j];
                         }
+                    }
+                }
+            }
+        }
+    }
+}
 
-                        out[i*n+j] += v;
+static void
+matmul_block_omp_unroll_xx(float * __restrict out,
+                           const float* __restrict inL,
+                           const float* __restrict inR,
+                           unsigned int n)
+{
+    unsigned int block_size = 32;
+    int i0, i;
+
+#pragma omp parallel for schedule(dynamic)
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+
+
+#pragma omp parallel for schedule(dynamic)
+    for (i0=0; i0<n; i0+=block_size) {
+        for (int j0=0; j0<n; j0+=block_size) {
+            for (int k0=0; k0<n; k0+=block_size) {
+                for (int bi=0; bi<block_size; bi++) {
+                    int i = i0+bi;
+
+                    for (int bk=0; bk<block_size; bk++) {
+                        int k = k0+bk;
+
+                        float lik = inL[i*n + k];
+
+                        for (int bj=0; bj<block_size; bj+=4) {
+                            int j;
+
+#define BLOCK_OMP_UNROLL_J(J)                                   \
+                            j = j0+bj+J;                        \
+                            out[i*n + j] += lik * inR[k*n + j]; \
+
+                            BLOCK_OMP_UNROLL_J(0);
+                            BLOCK_OMP_UNROLL_J(1);
+                            BLOCK_OMP_UNROLL_J(2);
+                            BLOCK_OMP_UNROLL_J(3);
+                        }
                     }
                 }
             }
