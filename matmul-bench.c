@@ -248,7 +248,7 @@ matmul_block_outer_sse_omp(float * __restrict out,
 
                         const float *inRp = &inR[k*n+j0];
 
-                        _mm_prefetch(inRp + n ,_MM_HINT_T0);
+                        _mm_prefetch(inRp + n*2,_MM_HINT_T0);
 
                         float lik = inL[i*n+k];
                         __m128 lik4 = _mm_set1_ps(lik);
@@ -331,7 +331,7 @@ matmul_block_outer_avx_omp(float * __restrict out,
 
                         const float *inRp = &inR[k*n+j0];
 
-                        _mm_prefetch(inRp + n ,_MM_HINT_T0);
+                        _mm_prefetch(inRp + n, _MM_HINT_T0);
 
                         float lik = inL[i*n+k];
                         __m256 lik8 = _mm256_set1_ps(lik);
@@ -405,19 +405,22 @@ matmul_block_outer_neon_omp(float * __restrict out,
                     float32x2_t vout6 = outp2[6];
                     float32x2_t vout7 = outp2[7];
 
+                    const float *inRp1 = (float*)&inR[k0*n+j0];
+                    const float *inL1 = inL + i*n + k0;
+
                     for (int bk=0; bk<block_size; bk++) {
                         int k = k0+bk;
 
-                        const float32x2_t *inRp = (float32x2_t*)&inR[k*n+j0];
-
-                        float lik = inL[i*n+k];
+                        float lik = *inL1;
                         float32x2_t lik2 = vdup_n_f32(lik);
 
-                        __builtin_prefetch(inRp + n*3);
+                        const float32x2_t *inRp = (float32x2_t*)(inRp1);
+
+                        __builtin_prefetch(inRp1 + n*2);
 
 #define OUTER_NEON_J0(J)                                               \
-                        float32x2_t vr##J = *(inRp++);                 \
-                        vout##J = vmla_f32(vout##J, lik2, vr##J);      \
+                        float32x2_t vr##J = inRp[J];                 \
+                            vout##J = vmla_f32(vout##J, lik2, vr##J);   \
 
                         OUTER_NEON_J0(0);
                         OUTER_NEON_J0(1);
@@ -428,6 +431,8 @@ matmul_block_outer_neon_omp(float * __restrict out,
                         OUTER_NEON_J0(6);
                         OUTER_NEON_J0(7);
 
+                        inRp1 += n;
+                        inL1 ++;
                     }
 
                     outp2[0] = vout0;
@@ -527,10 +532,12 @@ static void
 dump_flops(const char *tag,
            int ni,
            double sec,
-           float *data)
+           float *data,
+           int iter)
 {
     double n = ni;
-    printf("%-20s: sec=%8.5f, %8.5f[GFLOPS], %8.5f[GB/s]\n",
+    printf("%d:%-20s: sec=%8.5f, %8.5f[GFLOPS], %8.5f[GB/s]\n",
+           iter,
            tag,
            sec,
            n*n*n*2/(sec*1024.0*1024.0*1024.0),
@@ -553,7 +560,7 @@ dump_flops(const char *tag,
 }
 
 static void
-bench(void)
+bench(int iter)
 {
     double t0, t1;
 
@@ -561,34 +568,34 @@ bench(void)
     matmul_simple(out_simple, in0, in1, n);
     t1 = sec();
 
-    dump_flops("simple", n, t1-t0, out_simple);
+    dump_flops("simple", n, t1-t0, out_simple, iter);
 
 
     t0 = sec();
     matmul_simple_outer_omp(out_simple_outer_omp, in0, in1, n);
     t1 = sec();
 
-    dump_flops("simple_outer_omp", n, t1-t0, out_simple_outer_omp);
+    dump_flops("simple_outer_omp", n, t1-t0, out_simple_outer_omp, iter);
 
     t0 = sec();
     matmul_simple_omp(out_simple_omp, in0, in1, n);
     t1 = sec();
 
-    dump_flops("simple_omp", n, t1-t0, out_simple_omp);
+    dump_flops("simple_omp", n, t1-t0, out_simple_omp, iter);
 
     if (n > 16) {
         t0 = sec();
         matmul_block_omp(out_block_omp, in0, in1, n);
         t1 = sec();
 
-        dump_flops("block_omp", n, t1-t0, out_block_omp);
+        dump_flops("block_omp", n, t1-t0, out_block_omp, iter);
 
         if (n > 64) {
             t0 = sec();
             matmul_block_omp_unroll(out_block_omp_unroll, in0, in1, n);
             t1 = sec();
 
-            dump_flops("block_omp_unroll", n, t1-t0, out_block_omp_unroll);
+            dump_flops("block_omp_unroll", n, t1-t0, out_block_omp_unroll, iter);
 
 
 #ifdef __SSE__
@@ -596,7 +603,7 @@ bench(void)
             matmul_block_outer_sse_omp(out_block_outer_sse_omp, in0, in1, n);
             t1 = sec();
 
-            dump_flops("sse", n, t1-t0, out_block_omp_unroll);
+            dump_flops("sse", n, t1-t0, out_block_omp_unroll, iter);
 #endif
 
 #ifdef __AVX__
@@ -604,7 +611,7 @@ bench(void)
             matmul_block_outer_avx_omp(out_block_outer_avx_omp, in0, in1, n);
             t1 = sec();
 
-            dump_flops("avx", n, t1-t0, out_block_omp_unroll);
+            dump_flops("avx", n, t1-t0, out_block_omp_unroll, iter);
 #endif
 
 
@@ -613,7 +620,7 @@ bench(void)
             matmul_block_outer_neon_omp(out_block_outer_neon_omp, in0, in1, n);
             t1 = sec();
 
-            dump_flops("neon", n, t1-t0, out_block_outer_neon_omp);
+            dump_flops("neon", n, t1-t0, out_block_outer_neon_omp, iter);
 #endif
         }
     }
@@ -664,8 +671,9 @@ main(int argc, char **argv)
     dump_mat(n, in0);
     dump_mat(n, in1);
 
-    bench();
-    bench();
+    bench(0);
+    bench(1);
+    bench(2);
 
     _aligned_free(in0);
     _aligned_free(in1);

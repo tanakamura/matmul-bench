@@ -3,8 +3,7 @@ ifeq (${CROSS}, 1)
 CFLAGS=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -mfloat-abi=hard -mfpu=neon -mtune=cortex-a9 -mcpu=cortex-a9 -save-temps
 CC=arm-linux-gnueabihf-gcc
 else
-CFLAGS=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -mtune=native -save-temps #-march=native
-#endif
+CFLAGS=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -mtune=native -save-temps -march=native
 endif
 
 LDFLAGS=-g $(CFLAGS)
