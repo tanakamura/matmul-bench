@@ -16,3 +16,7 @@
   - SSE 版 512x512 7.76393[GFLOPS]
   - 理論値 2 x 4 x 2 x 1.58 = 25.28[GFLOPS]
   - 30.7%
+ * Atom Z3740 (1.33GHz, Silvermont, 4core)
+  - SSE 番 512x512 11.09515[GFLOPS]
+  - 理論値 4 x 4 x 2 x 42.56
+  - 26.1%

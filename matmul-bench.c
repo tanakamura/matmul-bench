@@ -6,7 +6,11 @@
 #include <omp.h>
 
 #ifdef __SSE__
+#ifdef _WIN32
+#include <intrin.h>
+#else
 #include <x86intrin.h>
+#endif
 #endif
 
 #ifdef __ARM_NEON__
