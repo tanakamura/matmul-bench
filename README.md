@@ -20,7 +20,11 @@
   - SSE 版 512x512 11.09515[GFLOPS]
   - 理論値 4 x 4 x 2 x 1.33 = 42.56
   - 26.1%
- * Tegra4 (1.8GHz, Cortex-A15, 4Core, Android)
+ * Tegra4 (1.8GHz, Cortex-A15, 4core, Android)
   - NEON 版 512x512 8.85087[GFLOPS]
   - 理論値 4 x 4 x 2 x 1.8 = 57.6
   - 15.4%
+ * i7-4770R (3.2GHz, Haswell, 4core, 8thread, Win 64bit)
+  - FMA 版 1536x1536 104.93163[GFLOPS]
+  - 理論値 4 x 8 x 4 x 3.2 = 409.6
+  - 25.6%
