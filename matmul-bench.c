@@ -4,15 +4,10 @@
 #include <math.h>
 #include <malloc.h>
 #include <omp.h>
-#include <emmintrin.h>
 
-enum bench_code {
-    BENCH_SIMPLE_C,
-    BENCH_CACHED_C,
-#ifdef __x86_64__
-    BENCH_AVX,
+#ifdef __SSE__
+#include <x86intrin.h>
 #endif
-};
 
 int n;
 
@@ -23,6 +18,7 @@ static float *out_simple_outer_omp;
 static float *out_simple_omp;
 static float *out_block_omp;
 static float *out_block_omp_unroll;
+static float *out_block_outer_sse_omp;
 
 #ifdef _WIN32
 #include <windows.h>
@@ -115,7 +111,6 @@ matmul_simple_outer_omp(float *__restrict out,
     }
 
 #pragma omp parallel for
-
     for (i=0; i<n; i++) {
         for (int k=0; k<n; k++) {
             float lik = inL[i*n+k];
@@ -195,6 +190,55 @@ matmul_block_omp(float * __restrict out,
         }
     }
 }
+
+#ifdef __SSE__
+static void
+matmul_block_outer_sse_omp(float * __restrict out,
+                           const float* __restrict inL,
+                           const float* __restrict inR,
+                           unsigned int n)
+{
+    unsigned int block_size = 16;
+    int i0, i;
+
+#pragma omp parallel for
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+#pragma omp parallel for
+    for (i0=0; i0<n; i0+=block_size) {
+        for (int j0=0; j0<n; j0+=block_size) {
+            for (int bi=0; bi<block_size; bi++) {
+                for (int bj=0; bj<block_size; bj++) {
+                    int i = i0+bi;
+                    int j = j0+bj;
+                    out[i*n+j] = 0;
+                }
+            }
+
+            for (int k0=0; k0<n; k0+=block_size) {
+                for (int bi=0; bi<block_size; bi++) {
+                    int i = i0+bi;
+
+                    for (int bk=0; bk<block_size; bk++) {
+                        int k = k0+bk;
+
+                        float lik = inL[i*n+k];
+
+                        for (int bj=0; bj<block_size; bj++) {
+                            int j = j0+bj;
+                            out[i*n+j] += lik * inR[k*n + j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+#endif
 
 
 static void
@@ -339,6 +383,15 @@ bench(void)
             t1 = sec();
 
             dump_flops("block_omp_unroll", n, t1-t0, out_block_omp_unroll);
+
+
+#ifdef __SSE__
+            t0 = sec();
+            matmul_block_outer_sse_omp(out_block_outer_sse_omp, in0, in1, n);
+            t1 = sec();
+
+            dump_flops("sse", n, t1-t0, out_block_omp_unroll);
+#endif
         }
     }
 }
@@ -367,6 +420,7 @@ main(int argc, char **argv)
     out_simple_omp = _aligned_malloc(n*n * sizeof(float), 64);
     out_block_omp = _aligned_malloc(n*n * sizeof(float), 64);
     out_block_omp_unroll = _aligned_malloc(n*n * sizeof(float), 64);
+    out_block_outer_sse_omp = _aligned_malloc(n*n * sizeof(float), 64);
 
     printf("n=%d\n", n);
     printf("total nelem=%d, mat size=%f[MB]\n",
@@ -393,4 +447,5 @@ main(int argc, char **argv)
     _aligned_free(out_simple_omp);
     _aligned_free(out_block_omp);
     _aligned_free(out_block_omp_unroll);
+    _aligned_free(out_block_outer_sse_omp);
 }
