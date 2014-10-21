@@ -408,32 +408,77 @@ matmul_block_outer_neon_omp(float * __restrict out,
                     const float *inRp1 = (float*)&inR[k0*n+j0];
                     const float *inL1 = inL + i*n + k0;
 
-                    for (int bk=0; bk<block_size; bk++) {
+                    float32x2_t vr0, vr1, vr2, vr3, vr4, vr5, vr6, vr7;
+
+                    {
+                        const float32x2_t *inRp = (float32x2_t*)(inRp1);
+                        __builtin_prefetch(inRp1 + n);
+                        __builtin_prefetch(inRp1 + n*2);
+
+                        vr0 = inRp[0];
+                        vr1 = inRp[1];
+                        vr2 = inRp[2];
+                        vr3 = inRp[3];
+                    }
+
+                    for (int bk=0; bk<block_size-1; bk++) {
                         int k = k0+bk;
 
                         float lik = *inL1;
                         float32x2_t lik2 = vdup_n_f32(lik);
 
                         const float32x2_t *inRp = (float32x2_t*)(inRp1);
-
                         __builtin_prefetch(inRp1 + n*2);
 
-#define OUTER_NEON_J0(J)                                               \
-                        float32x2_t vr##J = inRp[J];                 \
-                            vout##J = vmla_f32(vout##J, lik2, vr##J);   \
+                        vout0 = vmla_f32(vout0, lik2, vr0);
+                        vr4 = inRp[4];
 
-                        OUTER_NEON_J0(0);
-                        OUTER_NEON_J0(1);
-                        OUTER_NEON_J0(2);
-                        OUTER_NEON_J0(3);
-                        OUTER_NEON_J0(4);
-                        OUTER_NEON_J0(5);
-                        OUTER_NEON_J0(6);
-                        OUTER_NEON_J0(7);
+                        vout1 = vmla_f32(vout1, lik2, vr1);
+                        vr5 = inRp[5];
+
+                        vout2 = vmla_f32(vout2, lik2, vr2);
+                        vr6 = inRp[6];
+
+                        vout3 = vmla_f32(vout3, lik2, vr3);
+                        vr7 = inRp[7];
 
                         inRp1 += n;
+                        inRp = (float32x2_t*)(inRp1);
+
+                        vout4 = vmla_f32(vout4, lik2, vr4);
+                        vr0 = inRp[0];
+
+                        vout5 = vmla_f32(vout5, lik2, vr5);
+                        vr1 = inRp[1];
+
+                        vout6 = vmla_f32(vout6, lik2, vr6);
+                        vr2 = inRp[2];
+
+                        vout7 = vmla_f32(vout7, lik2, vr7);
+                        vr3 = inRp[3];
+
                         inL1 ++;
                     }
+
+                    {
+                        const float32x2_t *inRp = (float32x2_t*)(inRp1);
+
+                        float lik = *inL1;
+                        float32x2_t lik2 = vdup_n_f32(lik);
+                        vout0 = vmla_f32(vout0, lik2, vr0);
+                        vr4 = inRp[4];
+                        vout1 = vmla_f32(vout1, lik2, vr1);
+                        vr5 = inRp[5];
+                        vout2 = vmla_f32(vout2, lik2, vr2);
+                        vr6 = inRp[6];
+                        vout3 = vmla_f32(vout3, lik2, vr3);
+                        vr7 = inRp[7];
+                        vout4 = vmla_f32(vout4, lik2, vr4);
+                        vout5 = vmla_f32(vout5, lik2, vr5);
+                        vout6 = vmla_f32(vout6, lik2, vr6);
+                        vout7 = vmla_f32(vout7, lik2, vr7);
+                    }
+
 
                     outp2[0] = vout0;
                     outp2[1] = vout1;
