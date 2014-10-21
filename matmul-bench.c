@@ -510,7 +510,7 @@ matmul_neon(float * __restrict out,
     unsigned int block_size = 16;
     int i0, i;
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (i0=0; i0<n; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
             for (int bi=0; bi<block_size; bi++) {
