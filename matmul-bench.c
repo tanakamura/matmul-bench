@@ -19,6 +19,7 @@ int n;
 static float *in0;
 static float *in1;
 static float *out_simple;
+static float *out_simple_outer_omp;
 static float *out_simple_omp;
 static float *out_block_omp;
 static float *out_block_omp_unroll;
@@ -92,6 +93,36 @@ matmul_simple(float *__restrict out,
             }
 
             out[i*n+j] = v;
+        }
+    }
+
+    return;
+}
+
+static void
+matmul_simple_outer_omp(float *__restrict out,
+                        const float * __restrict inL,
+                        const float * __restrict inR,
+                        int n)
+{
+    int i;
+
+#pragma omp parallel for
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+#pragma omp parallel for
+
+    for (i=0; i<n; i++) {
+        for (int k=0; k<n; k++) {
+            float lik = inL[i*n+k];
+
+            for (int j=0; j<n; j++) {
+                out[i*n+j] += lik * inR[k*n + j];
+            }
         }
     }
 
@@ -282,6 +313,13 @@ bench(void)
 
     dump_flops("simple", n, t1-t0, out_simple);
 
+
+    t0 = sec();
+    matmul_simple_outer_omp(out_simple_outer_omp, in0, in1, n);
+    t1 = sec();
+
+    dump_flops("simple_outer_omp", n, t1-t0, out_simple_outer_omp);
+
     t0 = sec();
     matmul_simple_omp(out_simple_omp, in0, in1, n);
     t1 = sec();
@@ -325,6 +363,7 @@ main(int argc, char **argv)
     in1 = _aligned_malloc(n*n * sizeof(float), 64);
 
     out_simple = _aligned_malloc(n*n * sizeof(float), 64);
+    out_simple_outer_omp = _aligned_malloc(n*n * sizeof(float), 64);
     out_simple_omp = _aligned_malloc(n*n * sizeof(float), 64);
     out_block_omp = _aligned_malloc(n*n * sizeof(float), 64);
     out_block_omp_unroll = _aligned_malloc(n*n * sizeof(float), 64);
@@ -350,6 +389,7 @@ main(int argc, char **argv)
     _aligned_free(in0);
     _aligned_free(in1);
     _aligned_free(out_simple);
+    _aligned_free(out_simple_outer_omp);
     _aligned_free(out_simple_omp);
     _aligned_free(out_block_omp);
     _aligned_free(out_block_omp_unroll);
