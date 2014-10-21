@@ -207,14 +207,14 @@ matmul_block_outer_sse_omp(float * __restrict out,
     unsigned int block_size = 32;
     int i0, i;
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             out[i*n+j] = 0;
         }
     }
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (i0=0; i0<n; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
             for (int bi=0; bi<block_size; bi++) {
@@ -228,28 +228,36 @@ matmul_block_outer_sse_omp(float * __restrict out,
             for (int k0=0; k0<n; k0+=block_size) {
                 for (int bi=0; bi<block_size; bi++) {
                     int i = i0+bi;
+                    float *outp = &out[i*n+j0];
+
+                    _mm_prefetch(outp + n ,_MM_HINT_T0);
 
                     for (int bk=0; bk<block_size; bk++) {
                         int k = k0+bk;
 
+                        const float *inRp = &inR[k*n+j0];
+
+                        _mm_prefetch(inRp + n ,_MM_HINT_T0);
+
                         float lik = inL[i*n+k];
                         __m128 lik4 = _mm_set1_ps(lik);
 
-                        for (int bj=0; bj<block_size; bj+=8) {
-                            int j = j0+bj;
+#define OUTER_SSE_J(J)                                               \
+                        int j_##J = (J*4);                            \
+                        __m128 vo##J = _mm_load_ps(&outp[j_##J]);     \
+                        __m128 vr##J = _mm_load_ps(&inRp[j_##J]); \
+                        vo##J = _mm_add_ps(vo##J, _mm_mul_ps(lik4, vr##J)); \
+                        _mm_store_ps(&outp[j_##J], vo##J);          \
 
-                            __m128 vo0 = _mm_load_ps(&out[i*n+j]);
-                            __m128 vr0 = _mm_load_ps(&inR[k*n+j]);
+                        OUTER_SSE_J(0);
+                        OUTER_SSE_J(1);
+                        OUTER_SSE_J(2);
+                        OUTER_SSE_J(3);
 
-                            __m128 vo1 = _mm_load_ps(&out[i*n+j+4]);
-                            __m128 vr1 = _mm_load_ps(&inR[k*n+j+4]);
-
-                            vo0 = _mm_add_ps(vo0, _mm_mul_ps(lik4, vr0));
-                            vo1 = _mm_add_ps(vo1, _mm_mul_ps(lik4, vr1));
-
-                            _mm_store_ps(&out[i*n+j], vo0);
-                            _mm_store_ps(&out[i*n+j+4], vo1);
-                        }
+                        OUTER_SSE_J(4);
+                        OUTER_SSE_J(5);
+                        OUTER_SSE_J(6);
+                        OUTER_SSE_J(7);
                     }
                 }
             }
@@ -268,14 +276,14 @@ matmul_block_outer_avx_omp(float * __restrict out,
     unsigned int block_size = 32;
     int i0, i;
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             out[i*n+j] = 0;
         }
     }
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (i0=0; i0<n; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
             for (int bi=0; bi<block_size; bi++) {
@@ -289,23 +297,31 @@ matmul_block_outer_avx_omp(float * __restrict out,
             for (int k0=0; k0<n; k0+=block_size) {
                 for (int bi=0; bi<block_size; bi++) {
                     int i = i0+bi;
+                    float *outp = &out[i*n+j0];
+
+                    _mm_prefetch(outp + n ,_MM_HINT_T0);
 
                     for (int bk=0; bk<block_size; bk++) {
                         int k = k0+bk;
 
+                        const float *inRp = &inR[k*n+j0];
+
+                        _mm_prefetch(inRp + n ,_MM_HINT_T0);
+
                         float lik = inL[i*n+k];
                         __m256 lik8 = _mm256_set1_ps(lik);
 
-                        for (int bj=0; bj<block_size; bj+=8) {
-                            int j = j0+bj;
+#define OUTER_AVX_J(J)                                               \
+                        int j_##J = (J*8);                            \
+                        __m256 vo##J = _mm256_load_ps(&outp[j_##J]);     \
+                        __m256 vr##J = _mm256_load_ps(&inRp[j_##J]); \
+                        vo##J = _mm256_add_ps(vo##J, _mm256_mul_ps(lik8, vr##J)); \
+                        _mm256_store_ps(&outp[j_##J], vo##J);          \
 
-                            __m256 vo0 = _mm256_load_ps(&out[i*n+j]);
-                            __m256 vr0 = _mm256_load_ps(&inR[k*n+j]);
-
-                            vo0 = _mm256_add_ps(vo0, _mm256_mul_ps(lik8, vr0));
-
-                            _mm256_store_ps(&out[i*n+j], vo0);
-                        }
+                        OUTER_AVX_J(0);
+                        OUTER_AVX_J(1);
+                        OUTER_AVX_J(2);
+                        OUTER_AVX_J(3);
                     }
                 }
             }
@@ -322,7 +338,7 @@ matmul_block_outer_neon_omp(float * __restrict out,
                             const float* __restrict inR,
                             unsigned int n)
 {
-    unsigned int block_size = 32;
+    unsigned int block_size = 16;
     int i0, i;
 
 #pragma omp parallel for
@@ -347,27 +363,50 @@ matmul_block_outer_neon_omp(float * __restrict out,
                 for (int bi=0; bi<block_size; bi++) {
                     int i = i0+bi;
 
+                    float *outp = &out[i*n+j0];
+                    __builtin_prefetch(outp + n);
+
                     for (int bk=0; bk<block_size; bk++) {
                         int k = k0+bk;
 
+                        const float32x2_t *inRp = (float32x2_t*)&inR[k*n+j0];
+                        float32x2_t *outp0 = (float32x2_t*)outp;
+                        float32x2_t *outp1 = (float32x2_t*)outp;
+
+
                         float lik = inL[i*n+k];
-                        float32x4_t lik4 = vdupq_n_f32(lik);
+                        float32x2_t lik2 = vdup_n_f32(lik);
 
-                        for (int bj=0; bj<block_size; bj+=8) {
-                            int j = j0+bj;
+                        __builtin_prefetch(inRp + n);
 
-                            float32x4_t vo0 = vld1q_f32(&out[i*n+j]);
-                            float32x4_t vr0 = vld1q_f32(&inR[k*n+j]);
+#define OUTER_NEON_J0(J)                                               \
+                        /*int j_##J = (J*4);*/                          \
+                            float32x2_t vo##J = *(outp0++);             \
+                                float32x2_t vr##J = *(inRp++);          \
 
-                            float32x4_t vo1 = vld1q_f32(&out[i*n+j+4]);
-                            float32x4_t vr1 = vld1q_f32(&inR[k*n+j+4]);
+#define OUTER_NEON_J1(J)                                               \
+                        vo##J = vmla_f32(vo##J, lik2, vr##J); \
+                            *(outp1++) = vo##J;                         \
 
-                            vo0 = vaddq_f32(vo0, vmulq_f32(lik4, vr0));
-                            vo1 = vaddq_f32(vo1, vmulq_f32(lik4, vr1));
+                        OUTER_NEON_J0(0);
+                        OUTER_NEON_J0(1);
+                        OUTER_NEON_J0(2);
+                        OUTER_NEON_J0(3);
 
-                            vst1q_f32(&out[i*n+j], vo0);
-                            vst1q_f32(&out[i*n+j+4], vo1);
-                        }
+                        OUTER_NEON_J1(0);
+                        OUTER_NEON_J1(1);
+                        OUTER_NEON_J1(2);
+                        OUTER_NEON_J1(3);
+
+                        OUTER_NEON_J0(4);
+                        OUTER_NEON_J0(5);
+                        OUTER_NEON_J0(6);
+                        OUTER_NEON_J0(7);
+
+                        OUTER_NEON_J1(4);
+                        OUTER_NEON_J1(5);
+                        OUTER_NEON_J1(6);
+                        OUTER_NEON_J1(7);
                     }
                 }
             }
@@ -566,17 +605,19 @@ main(int argc, char **argv)
         omp_set_num_threads(atoi(argv[2]));
     }
 
-    in0 = _aligned_malloc(n*n * sizeof(float), 64);
-    in1 = _aligned_malloc(n*n * sizeof(float), 64);
+    int align = 64;
 
-    out_simple = _aligned_malloc(n*n * sizeof(float), 64);
-    out_simple_outer_omp = _aligned_malloc(n*n * sizeof(float), 64);
-    out_simple_omp = _aligned_malloc(n*n * sizeof(float), 64);
-    out_block_omp = _aligned_malloc(n*n * sizeof(float), 64);
-    out_block_omp_unroll = _aligned_malloc(n*n * sizeof(float), 64);
-    out_block_outer_sse_omp = _aligned_malloc(n*n * sizeof(float), 64);
-    out_block_outer_avx_omp = _aligned_malloc(n*n * sizeof(float), 64);
-    out_block_outer_neon_omp = _aligned_malloc(n*n * sizeof(float), 64);
+    in0 = _aligned_malloc(n*n * sizeof(float), align);
+    in1 = _aligned_malloc(n*n * sizeof(float), align);
+
+    out_simple = _aligned_malloc(n*n * sizeof(float), align);
+    out_simple_outer_omp = _aligned_malloc(n*n * sizeof(float), align);
+    out_simple_omp = _aligned_malloc(n*n * sizeof(float), align);
+    out_block_omp = _aligned_malloc(n*n * sizeof(float), align);
+    out_block_omp_unroll = _aligned_malloc(n*n * sizeof(float), align);
+    out_block_outer_sse_omp = _aligned_malloc(n*n * sizeof(float), align);
+    out_block_outer_avx_omp = _aligned_malloc(n*n * sizeof(float), align);
+    out_block_outer_neon_omp = _aligned_malloc(n*n * sizeof(float), align);
 
     printf("n=%d\n", n);
     printf("total nelem=%d, mat size=%f[MB]\n",
