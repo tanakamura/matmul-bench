@@ -229,7 +229,18 @@ matmul_block_outer_sse_omp(float * __restrict out,
                 for (int bi=0; bi<block_size; bi++) {
                     int i = i0+bi;
                     float *outp = &out[i*n+j0];
+                    __m128 *outp4 = (__m128*)outp;
 
+                    __m128 vout0 = outp4[0];
+                    __m128 vout1 = outp4[1];
+                    __m128 vout2 = outp4[2];
+                    __m128 vout3 = outp4[3];
+
+                    __m128 vout4 = outp4[4];
+                    __m128 vout5 = outp4[5];
+                    __m128 vout6 = outp4[6];
+                    __m128 vout7 = outp4[7];
+ 
                     _mm_prefetch(outp + n ,_MM_HINT_T0);
 
                     for (int bk=0; bk<block_size; bk++) {
@@ -244,10 +255,8 @@ matmul_block_outer_sse_omp(float * __restrict out,
 
 #define OUTER_SSE_J(J)                                               \
                         int j_##J = (J*4);                            \
-                        __m128 vo##J = _mm_load_ps(&outp[j_##J]);     \
                         __m128 vr##J = _mm_load_ps(&inRp[j_##J]); \
-                        vo##J = _mm_add_ps(vo##J, _mm_mul_ps(lik4, vr##J)); \
-                        _mm_store_ps(&outp[j_##J], vo##J);          \
+                        vout##J = _mm_add_ps(vout##J, _mm_mul_ps(lik4, vr##J)); \
 
                         OUTER_SSE_J(0);
                         OUTER_SSE_J(1);
@@ -259,6 +268,16 @@ matmul_block_outer_sse_omp(float * __restrict out,
                         OUTER_SSE_J(6);
                         OUTER_SSE_J(7);
                     }
+
+                    outp4[0] = vout0;
+                    outp4[1] = vout1;
+                    outp4[2] = vout2;
+                    outp4[3] = vout3;
+
+                    outp4[4] = vout4;
+                    outp4[5] = vout5;
+                    outp4[6] = vout6;
+                    outp4[7] = vout7;
                 }
             }
         }
@@ -298,6 +317,12 @@ matmul_block_outer_avx_omp(float * __restrict out,
                 for (int bi=0; bi<block_size; bi++) {
                     int i = i0+bi;
                     float *outp = &out[i*n+j0];
+                    __m256 *outp8 = (__m256*)outp;
+
+                    __m256 vout0 = outp8[0];
+                    __m256 vout1 = outp8[1];
+                    __m256 vout2 = outp8[2];
+                    __m256 vout3 = outp8[3];
 
                     _mm_prefetch(outp + n ,_MM_HINT_T0);
 
@@ -313,16 +338,19 @@ matmul_block_outer_avx_omp(float * __restrict out,
 
 #define OUTER_AVX_J(J)                                               \
                         int j_##J = (J*8);                            \
-                        __m256 vo##J = _mm256_load_ps(&outp[j_##J]);     \
                         __m256 vr##J = _mm256_load_ps(&inRp[j_##J]); \
-                        vo##J = _mm256_add_ps(vo##J, _mm256_mul_ps(lik8, vr##J)); \
-                        _mm256_store_ps(&outp[j_##J], vo##J);          \
+                        vout##J = _mm256_add_ps(vout##J, _mm256_mul_ps(lik8, vr##J)); \
 
                         OUTER_AVX_J(0);
                         OUTER_AVX_J(1);
                         OUTER_AVX_J(2);
                         OUTER_AVX_J(3);
                     }
+
+                    outp8[0] = vout0;
+                    outp8[1] = vout1;
+                    outp8[2] = vout2;
+                    outp8[3] = vout3;
                 }
             }
         }
@@ -364,50 +392,52 @@ matmul_block_outer_neon_omp(float * __restrict out,
                     int i = i0+bi;
 
                     float *outp = &out[i*n+j0];
+                    float32x2_t *outp2 = (float32x2_t*)outp;
+
                     __builtin_prefetch(outp + n);
+
+                    float32x2_t vout0 = outp2[0];
+                    float32x2_t vout1 = outp2[1];
+                    float32x2_t vout2 = outp2[2];
+                    float32x2_t vout3 = outp2[3];
+                    float32x2_t vout4 = outp2[4];
+                    float32x2_t vout5 = outp2[5];
+                    float32x2_t vout6 = outp2[6];
+                    float32x2_t vout7 = outp2[7];
 
                     for (int bk=0; bk<block_size; bk++) {
                         int k = k0+bk;
 
                         const float32x2_t *inRp = (float32x2_t*)&inR[k*n+j0];
-                        float32x2_t *outp0 = (float32x2_t*)outp;
-                        float32x2_t *outp1 = (float32x2_t*)outp;
-
 
                         float lik = inL[i*n+k];
                         float32x2_t lik2 = vdup_n_f32(lik);
 
-                        __builtin_prefetch(inRp + n);
+                        __builtin_prefetch(inRp + n*3);
 
 #define OUTER_NEON_J0(J)                                               \
-                        /*int j_##J = (J*4);*/                          \
-                            float32x2_t vo##J = *(outp0++);             \
-                                float32x2_t vr##J = *(inRp++);          \
-
-#define OUTER_NEON_J1(J)                                               \
-                        vo##J = vmla_f32(vo##J, lik2, vr##J); \
-                            *(outp1++) = vo##J;                         \
+                        float32x2_t vr##J = *(inRp++);                 \
+                        vout##J = vmla_f32(vout##J, lik2, vr##J);      \
 
                         OUTER_NEON_J0(0);
                         OUTER_NEON_J0(1);
                         OUTER_NEON_J0(2);
                         OUTER_NEON_J0(3);
-
-                        OUTER_NEON_J1(0);
-                        OUTER_NEON_J1(1);
-                        OUTER_NEON_J1(2);
-                        OUTER_NEON_J1(3);
-
                         OUTER_NEON_J0(4);
                         OUTER_NEON_J0(5);
                         OUTER_NEON_J0(6);
                         OUTER_NEON_J0(7);
 
-                        OUTER_NEON_J1(4);
-                        OUTER_NEON_J1(5);
-                        OUTER_NEON_J1(6);
-                        OUTER_NEON_J1(7);
                     }
+
+                    outp2[0] = vout0;
+                    outp2[1] = vout1;
+                    outp2[2] = vout2;
+                    outp2[3] = vout3;
+                    outp2[4] = vout4;
+                    outp2[5] = vout5;
+                    outp2[6] = vout6;
+                    outp2[7] = vout7;
                 }
             }
         }
@@ -500,7 +530,7 @@ dump_flops(const char *tag,
            float *data)
 {
     double n = ni;
-    printf("%-20s: sec=%f, %f[GFLOPS], %f[GB/s]\n",
+    printf("%-20s: sec=%8.5f, %8.5f[GFLOPS], %8.5f[GB/s]\n",
            tag,
            sec,
            n*n*n*2/(sec*1024.0*1024.0*1024.0),
@@ -513,7 +543,7 @@ dump_flops(const char *tag,
             float delta = fabs(data[i]-out_simple[i]);
             double ratio = delta/(fabs(data[i])*100.0);
 
-            if (ratio > 1e-3) {
+            if (ratio > 1e-5) {
                 printf("error delta=%e(%e[%%]), simple=%e, opt=%e\n", delta, ratio, data[i], out_simple[i]);
                 exit(1);
             }

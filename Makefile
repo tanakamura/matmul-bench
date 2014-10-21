@@ -1,9 +1,9 @@
 all: matmul-bench
 ifeq (${CROSS}, 1)
-CFLAGS=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -mfloat-abi=hard -mfpu=neon -mcpu=cortex-a9 -save-temps
+CFLAGS=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -mfloat-abi=hard -mfpu=neon -mtune=cortex-a9 -mcpu=cortex-a9 -save-temps
 CC=arm-linux-gnueabihf-gcc
 else
-CFLAGS=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -mtune=native -save-temps -march=native
+CFLAGS=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -mtune=native -save-temps #-march=native
 #endif
 endif
 
@@ -13,4 +13,4 @@ matmul-bench.o: matmul-bench.c
 matmul-bench: matmul-bench.o
 
 clean:
-	rm -f matmul-bench *.o *.s
+	rm -f matmul-bench *.o *.s *.i *~
