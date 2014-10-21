@@ -28,6 +28,7 @@ static float *out_block_omp;
 static float *out_block_omp_unroll;
 static float *out_block_outer_sse_omp;
 static float *out_block_outer_avx_omp;
+static float *out_x86_fma;
 static float *out_block_outer_neon_omp;
 static float *out_neon;
 static float *out_for_a9;
@@ -264,6 +265,14 @@ matmul_block_outer_sse_omp(float * __restrict out,
 #pragma omp parallel for schedule(dynamic)
     for (i0=0; i0<n; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
+            for (int bi=0; bi<block_size; bi++) {
+                for (int bj=0; bj<block_size; bj+=4) {
+                    int i = i0+bi;
+                    int j = j0+bj;
+                    _mm_store_ps(&out[i*n+j], _mm_setzero_ps());
+                }
+            }
+
             for (int k0=0; k0<n; k0+=block_size) {
                 for (int bi=0; bi<block_size; bi++) {
                     int i = i0+bi;
@@ -278,15 +287,15 @@ matmul_block_outer_sse_omp(float * __restrict out,
                     __m128 vout5 = _mm_setzero_ps();
                     __m128 vout6 = _mm_setzero_ps();
                     __m128 vout7 = _mm_setzero_ps();
- 
-                    _mm_prefetch(outp + n ,_MM_HINT_T0);
+
+                    _mm_prefetch((const char*)(outp + n) ,_MM_HINT_T0);
 
                     for (long bk=0; bk<block_size; bk++) {
                         long k = k0+bk;
 
                         const float *inRp = &inR[k*n+j0];
 
-                        _mm_prefetch(inRp + n,_MM_HINT_T0);
+                        _mm_prefetch((const char*)(inRp + n),_MM_HINT_T0);
 
                         float lik = inL[i*n+k];
                         __m128 lik4 = _mm_set1_ps(lik);
@@ -307,15 +316,15 @@ matmul_block_outer_sse_omp(float * __restrict out,
                         OUTER_SSE_J(7);
                     }
 
-                    _mm_stream_ps((float*)&outp4[0], vout0);
-                    _mm_stream_ps((float*)&outp4[1], vout1);
-                    _mm_stream_ps((float*)&outp4[2], vout2);
-                    _mm_stream_ps((float*)&outp4[3], vout3);
+                    outp4[0] = _mm_add_ps(outp4[0], vout0);
+                    outp4[1] = _mm_add_ps(outp4[1], vout1);
+                    outp4[2] = _mm_add_ps(outp4[2], vout2);
+                    outp4[3] = _mm_add_ps(outp4[3], vout3);
 
-                    _mm_stream_ps((float*)&outp4[4], vout4);
-                    _mm_stream_ps((float*)&outp4[5], vout5);
-                    _mm_stream_ps((float*)&outp4[6], vout6);
-                    _mm_stream_ps((float*)&outp4[7], vout7);
+                    outp4[4] = _mm_add_ps(outp4[4], vout4);
+                    outp4[5] = _mm_add_ps(outp4[5], vout5);
+                    outp4[6] = _mm_add_ps(outp4[6], vout6);
+                    outp4[7] = _mm_add_ps(outp4[7], vout7);
                 }
             }
         }
@@ -336,6 +345,15 @@ matmul_block_outer_avx_omp(float * __restrict out,
 #pragma omp parallel for schedule(dynamic)
     for (i0=0; i0<n; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
+            for (int bi=0; bi<block_size; bi++) {
+                for (int bj=0; bj<block_size; bj+=8) {
+                    int i = i0+bi;
+                    int j = j0+bj;
+                    _mm256_store_ps(&out[i*n+j], _mm256_setzero_ps());
+                }
+            }
+
+
             for (int k0=0; k0<n; k0+=block_size) {
                 for (int bi=0; bi<block_size; bi++) {
                     int i = i0+bi;
@@ -347,14 +365,14 @@ matmul_block_outer_avx_omp(float * __restrict out,
                     __m256 vout2 = _mm256_setzero_ps();
                     __m256 vout3 = _mm256_setzero_ps();
 
-                    _mm_prefetch(outp + n ,_MM_HINT_T0);
+                    _mm_prefetch((const char*)(outp + n) ,_MM_HINT_T0);
 
                     for (long bk=0; bk<block_size; bk++) {
                         long k = k0+bk;
 
                         const float *inRp = &inR[k*n+j0];
 
-                        _mm_prefetch(inRp + n, _MM_HINT_T0);
+                        _mm_prefetch((const char*)(inRp + n), _MM_HINT_T0);
 
                         float lik = inL[i*n+k];
                         __m256 lik8 = _mm256_set1_ps(lik);
@@ -370,16 +388,85 @@ matmul_block_outer_avx_omp(float * __restrict out,
                         OUTER_AVX_J(3);
                     }
 
-                    _mm256_stream_ps((float*)&outp8[0], vout0);
-                    _mm256_stream_ps((float*)&outp8[1], vout1);
-                    _mm256_stream_ps((float*)&outp8[2], vout2);
-                    _mm256_stream_ps((float*)&outp8[3], vout3);
+                    outp8[0] = _mm256_add_ps(outp8[0], vout0);
+                    outp8[1] = _mm256_add_ps(outp8[1], vout1);
+                    outp8[2] = _mm256_add_ps(outp8[2], vout2);
+                    outp8[3] = _mm256_add_ps(outp8[3], vout3);
                 }
             }
         }
     }
 }
 #endif
+
+
+#ifdef __FMA__
+static void
+matmul_x86_fma(float * __restrict out,
+               const float* __restrict inL,
+               const float* __restrict inR,
+               unsigned int n)
+{
+    unsigned int block_size = 32;
+    int i0, i;
+
+#pragma omp parallel for schedule(dynamic)
+    for (i0=0; i0<n; i0+=block_size) {
+        for (int j0=0; j0<n; j0+=block_size) {
+            for (int bi=0; bi<block_size; bi++) {
+                for (int bj=0; bj<block_size; bj+=8) {
+                    int i = i0+bi;
+                    int j = j0+bj;
+                    _mm256_store_ps(&out[i*n+j], _mm256_setzero_ps());
+                }
+            }
+
+
+            for (int k0=0; k0<n; k0+=block_size) {
+                for (int bi=0; bi<block_size; bi++) {
+                    int i = i0+bi;
+                    float *outp = &out[i*n+j0];
+                    __m256 *outp8 = (__m256*)outp;
+
+                    __m256 vout0 = _mm256_setzero_ps();
+                    __m256 vout1 = _mm256_setzero_ps();
+                    __m256 vout2 = _mm256_setzero_ps();
+                    __m256 vout3 = _mm256_setzero_ps();
+
+                    _mm_prefetch((const char*)(outp + n) ,_MM_HINT_T0);
+
+                    for (long bk=0; bk<block_size; bk++) {
+                        long k = k0+bk;
+
+                        const float *inRp = &inR[k*n+j0];
+
+                        _mm_prefetch((const char*)(inRp + n), _MM_HINT_T0);
+
+                        float lik = inL[i*n+k];
+                        __m256 lik8 = _mm256_set1_ps(lik);
+
+#define OUTER_AVX_J(J)                                               \
+                        long j_##J = (J*8);                          \
+                        __m256 vr##J = _mm256_load_ps(&inRp[j_##J]); \
+                        vout##J = _mm256_fmadd_ps(lik8, vr##J, vout##J);     \
+
+                        OUTER_AVX_J(0);
+                        OUTER_AVX_J(1);
+                        OUTER_AVX_J(2);
+                        OUTER_AVX_J(3);
+                    }
+
+                    outp8[0] = _mm256_add_ps(outp8[0], vout0);
+                    outp8[1] = _mm256_add_ps(outp8[1], vout1);
+                    outp8[2] = _mm256_add_ps(outp8[2], vout2);
+                    outp8[3] = _mm256_add_ps(outp8[3], vout3);
+                }
+            }
+        }
+    }
+}
+#endif
+
 
 
 #ifdef __ARM_NEON__
@@ -664,9 +751,9 @@ dump_flops(const char *tag,
     if (data != out_simple) {
         for (int i=0; i<n*n; i++) {
             float delta = fabs(data[i]-out_simple[i]);
-            double ratio = delta/(fabs(data[i])*100.0);
+            double ratio = (delta/fabs(data[i]))*100;
 
-            if (ratio > 1e-5) {
+            if (ratio > 1e-3) {
                 printf("error delta=%e(%e[%%]), simple=%e, opt=%e\n", delta, ratio, data[i], out_simple[i]);
                 exit(1);
             }
@@ -719,7 +806,7 @@ bench(int iter)
             matmul_block_outer_sse_omp(out_block_outer_sse_omp, in0, in1, n);
             t1 = sec();
 
-            dump_flops("sse", n, t1-t0, out_block_omp_unroll, iter);
+            dump_flops("sse", n, t1-t0, out_block_outer_sse_omp, iter);
 #endif
 
 #ifdef __AVX__
@@ -727,7 +814,17 @@ bench(int iter)
             matmul_block_outer_avx_omp(out_block_outer_avx_omp, in0, in1, n);
             t1 = sec();
 
-            dump_flops("avx", n, t1-t0, out_block_omp_unroll, iter);
+            dump_flops("avx", n, t1-t0, out_block_outer_avx_omp, iter);
+#endif
+
+
+
+#ifdef __FMA__
+            t0 = sec();
+            matmul_x86_fma(out_x86_fma, in0, in1, n);
+            t1 = sec();
+
+            dump_flops("fma", n, t1-t0, out_x86_fma, iter);
 #endif
 
 
@@ -780,6 +877,7 @@ main(int argc, char **argv)
     out_block_outer_avx_omp = _aligned_malloc(n*n * sizeof(float), align);
     out_block_outer_neon_omp = _aligned_malloc(n*n * sizeof(float), align);
     out_for_a9 = _aligned_malloc(n*n * sizeof(float), align);
+    out_x86_fma = _aligned_malloc(n*n * sizeof(float), align);
     out_neon = _aligned_malloc(n*n * sizeof(float), align);
 
     printf("n=%d\n", n);
@@ -813,5 +911,6 @@ main(int argc, char **argv)
     _aligned_free(out_block_outer_neon_omp);
     _aligned_free(out_for_a9);
     _aligned_free(out_neon);
+    _aligned_free(out_x86_fma);
 
 }
