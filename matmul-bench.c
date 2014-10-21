@@ -19,6 +19,7 @@ static float *out_simple_omp;
 static float *out_block_omp;
 static float *out_block_omp_unroll;
 static float *out_block_outer_sse_omp;
+static float *out_block_outer_avx_omp;
 
 #ifdef _WIN32
 #include <windows.h>
@@ -198,7 +199,7 @@ matmul_block_outer_sse_omp(float * __restrict out,
                            const float* __restrict inR,
                            unsigned int n)
 {
-    unsigned int block_size = 16;
+    unsigned int block_size = 32;
     int i0, i;
 
 #pragma omp parallel for
@@ -251,6 +252,63 @@ matmul_block_outer_sse_omp(float * __restrict out,
     }
 }
 #endif
+
+#ifdef __AVX__
+static void
+matmul_block_outer_avx_omp(float * __restrict out,
+                           const float* __restrict inL,
+                           const float* __restrict inR,
+                           unsigned int n)
+{
+    unsigned int block_size = 32;
+    int i0, i;
+
+#pragma omp parallel for
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+#pragma omp parallel for
+    for (i0=0; i0<n; i0+=block_size) {
+        for (int j0=0; j0<n; j0+=block_size) {
+            for (int bi=0; bi<block_size; bi++) {
+                for (int bj=0; bj<block_size; bj++) {
+                    int i = i0+bi;
+                    int j = j0+bj;
+                    out[i*n+j] = 0;
+                }
+            }
+
+            for (int k0=0; k0<n; k0+=block_size) {
+                for (int bi=0; bi<block_size; bi++) {
+                    int i = i0+bi;
+
+                    for (int bk=0; bk<block_size; bk++) {
+                        int k = k0+bk;
+
+                        float lik = inL[i*n+k];
+                        __m256 lik8 = _mm256_set1_ps(lik);
+
+                        for (int bj=0; bj<block_size; bj+=8) {
+                            int j = j0+bj;
+
+                            __m256 vo0 = _mm256_load_ps(&out[i*n+j]);
+                            __m256 vr0 = _mm256_load_ps(&inR[k*n+j]);
+
+                            vo0 = _mm256_add_ps(vo0, _mm256_mul_ps(lik8, vr0));
+
+                            _mm256_store_ps(&out[i*n+j], vo0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+#endif
+
 
 
 static void
@@ -404,6 +462,14 @@ bench(void)
 
             dump_flops("sse", n, t1-t0, out_block_omp_unroll);
 #endif
+
+#ifdef __AVX__
+            t0 = sec();
+            matmul_block_outer_avx_omp(out_block_outer_avx_omp, in0, in1, n);
+            t1 = sec();
+
+            dump_flops("avx", n, t1-t0, out_block_omp_unroll);
+#endif
         }
     }
 }
@@ -433,6 +499,7 @@ main(int argc, char **argv)
     out_block_omp = _aligned_malloc(n*n * sizeof(float), 64);
     out_block_omp_unroll = _aligned_malloc(n*n * sizeof(float), 64);
     out_block_outer_sse_omp = _aligned_malloc(n*n * sizeof(float), 64);
+    out_block_outer_avx_omp = _aligned_malloc(n*n * sizeof(float), 64);
 
     printf("n=%d\n", n);
     printf("total nelem=%d, mat size=%f[MB]\n",
@@ -460,4 +527,6 @@ main(int argc, char **argv)
     _aligned_free(out_block_omp);
     _aligned_free(out_block_omp_unroll);
     _aligned_free(out_block_outer_sse_omp);
+    _aligned_free(out_block_outer_avx_omp);
+
 }
