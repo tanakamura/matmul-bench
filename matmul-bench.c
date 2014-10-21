@@ -227,10 +227,22 @@ matmul_block_outer_sse_omp(float * __restrict out,
                         int k = k0+bk;
 
                         float lik = inL[i*n+k];
+                        __m128 lik4 = _mm_set1_ps(lik);
 
-                        for (int bj=0; bj<block_size; bj++) {
+                        for (int bj=0; bj<block_size; bj+=8) {
                             int j = j0+bj;
-                            out[i*n+j] += lik * inR[k*n + j];
+
+                            __m128 vo0 = _mm_load_ps(&out[i*n+j]);
+                            __m128 vr0 = _mm_load_ps(&inR[k*n+j]);
+
+                            __m128 vo1 = _mm_load_ps(&out[i*n+j+4]);
+                            __m128 vr1 = _mm_load_ps(&inR[k*n+j+4]);
+
+                            vo0 = _mm_add_ps(vo0, _mm_mul_ps(lik4, vr0));
+                            vo1 = _mm_add_ps(vo1, _mm_mul_ps(lik4, vr1));
+
+                            _mm_store_ps(&out[i*n+j], vo0);
+                            _mm_store_ps(&out[i*n+j+4], vo1);
                         }
                     }
                 }
