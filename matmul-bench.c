@@ -9,6 +9,10 @@
 #include <x86intrin.h>
 #endif
 
+#ifdef __ARM_NEON__
+#include <arm_neon.h>
+#endif
+
 int n;
 
 static float *in0;
@@ -20,6 +24,7 @@ static float *out_block_omp;
 static float *out_block_omp_unroll;
 static float *out_block_outer_sse_omp;
 static float *out_block_outer_avx_omp;
+static float *out_block_outer_neon_omp;
 
 #ifdef _WIN32
 #include <windows.h>
@@ -310,6 +315,68 @@ matmul_block_outer_avx_omp(float * __restrict out,
 #endif
 
 
+#ifdef __ARM_NEON__
+static void
+matmul_block_outer_neon_omp(float * __restrict out,
+                            const float* __restrict inL,
+                            const float* __restrict inR,
+                            unsigned int n)
+{
+    unsigned int block_size = 32;
+    int i0, i;
+
+#pragma omp parallel for
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+#pragma omp parallel for
+    for (i0=0; i0<n; i0+=block_size) {
+        for (int j0=0; j0<n; j0+=block_size) {
+            for (int bi=0; bi<block_size; bi++) {
+                for (int bj=0; bj<block_size; bj++) {
+                    int i = i0+bi;
+                    int j = j0+bj;
+                    out[i*n+j] = 0;
+                }
+            }
+
+            for (int k0=0; k0<n; k0+=block_size) {
+                for (int bi=0; bi<block_size; bi++) {
+                    int i = i0+bi;
+
+                    for (int bk=0; bk<block_size; bk++) {
+                        int k = k0+bk;
+
+                        float lik = inL[i*n+k];
+                        float32x4_t lik4 = vdupq_n_f32(lik);
+
+                        for (int bj=0; bj<block_size; bj+=8) {
+                            int j = j0+bj;
+
+                            float32x4_t vo0 = vld1q_f32(&out[i*n+j]);
+                            float32x4_t vr0 = vld1q_f32(&inR[k*n+j]);
+
+                            float32x4_t vo1 = vld1q_f32(&out[i*n+j+4]);
+                            float32x4_t vr1 = vld1q_f32(&inR[k*n+j+4]);
+
+                            vo0 = vaddq_f32(vo0, vmulq_f32(lik4, vr0));
+                            vo1 = vaddq_f32(vo1, vmulq_f32(lik4, vr1));
+
+                            vst1q_f32(&out[i*n+j], vo0);
+                            vst1q_f32(&out[i*n+j+4], vo1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+#endif
+
+
 
 static void
 matmul_block_omp_unroll(float * __restrict out,
@@ -470,6 +537,15 @@ bench(void)
 
             dump_flops("avx", n, t1-t0, out_block_omp_unroll);
 #endif
+
+
+#ifdef __ARM_NEON__
+            t0 = sec();
+            matmul_block_outer_neon_omp(out_block_outer_neon_omp, in0, in1, n);
+            t1 = sec();
+
+            dump_flops("neon", n, t1-t0, out_block_outer_neon_omp);
+#endif
         }
     }
 }
@@ -500,6 +576,7 @@ main(int argc, char **argv)
     out_block_omp_unroll = _aligned_malloc(n*n * sizeof(float), 64);
     out_block_outer_sse_omp = _aligned_malloc(n*n * sizeof(float), 64);
     out_block_outer_avx_omp = _aligned_malloc(n*n * sizeof(float), 64);
+    out_block_outer_neon_omp = _aligned_malloc(n*n * sizeof(float), 64);
 
     printf("n=%d\n", n);
     printf("total nelem=%d, mat size=%f[MB]\n",
@@ -528,5 +605,6 @@ main(int argc, char **argv)
     _aligned_free(out_block_omp_unroll);
     _aligned_free(out_block_outer_sse_omp);
     _aligned_free(out_block_outer_avx_omp);
+    _aligned_free(out_block_outer_neon_omp);
 
 }
