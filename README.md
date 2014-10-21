@@ -5,7 +5,7 @@
 (理論値 : コア x SIMD x MulAdd x freq)
 
  * i7-4930K (3.40GHz, Ivy, 6core, 12thread)
-  - SSE 版(!?) 1536x1536 106.37345[GFLOPS] (-mavx 付けないでビルドする)
+  - SSE 版(!?) 1536x1536 106.37345[GFLOPS] ( -mavx 付けないでビルドする )
   - 理論値 6 x 8 x 2 x 3.4 = 326.4G[FLOPS]
   - 32.6%
  * Cortex A9 (667MHz, A9, 2core)
