@@ -333,138 +333,27 @@ matmul_block_outer_sse_omp(float * __restrict out,
 #endif
 
 #ifdef __AVX__
-static void
-matmul_block_outer_avx_omp(float * __restrict out,
-                           const float* __restrict inL,
-                           const float* __restrict inR,
-                           unsigned int n)
-{
-    unsigned int block_size = 32;
-    int i0, i;
+#define AVX_OP(I,J)                                                     \
+    long j_##I##J = (J*8);                                              \
+    __m256 vr##I##J = _mm256_load_ps(&inRp[j_##I##J]);                  \
+    vout##I##_##J = _mm256_add_ps(vout##I##_##J, _mm256_mul_ps(lik##I##_8, vr##I##J)); \
 
-#pragma omp parallel for schedule(dynamic)
-    for (i0=0; i0<n; i0+=block_size) {
-        for (int j0=0; j0<n; j0+=block_size) {
-            for (int bi=0; bi<block_size; bi++) {
-                for (int bj=0; bj<block_size; bj+=8) {
-                    int i = i0+bi;
-                    int j = j0+bj;
-                    _mm256_store_ps(&out[i*n+j], _mm256_setzero_ps());
-                }
-            }
+#define AVX_FUNC_NAME matmul_block_outer_avx_omp
+#include "avxfunc.h"
 
-
-            for (int k0=0; k0<n; k0+=block_size) {
-                for (int bi=0; bi<block_size; bi++) {
-                    int i = i0+bi;
-                    float *outp = &out[i*n+j0];
-                    __m256 *outp8 = (__m256*)outp;
-
-                    __m256 vout0 = _mm256_setzero_ps();
-                    __m256 vout1 = _mm256_setzero_ps();
-                    __m256 vout2 = _mm256_setzero_ps();
-                    __m256 vout3 = _mm256_setzero_ps();
-
-                    _mm_prefetch((const char*)(outp + n) ,_MM_HINT_T0);
-
-                    for (long bk=0; bk<block_size; bk++) {
-                        long k = k0+bk;
-
-                        const float *inRp = &inR[k*n+j0];
-
-                        _mm_prefetch((const char*)(inRp + n), _MM_HINT_T0);
-
-                        float lik = inL[i*n+k];
-                        __m256 lik8 = _mm256_set1_ps(lik);
-
-#define OUTER_AVX_J(J)                                               \
-                        long j_##J = (J*8);                          \
-                        __m256 vr##J = _mm256_load_ps(&inRp[j_##J]); \
-                        vout##J = _mm256_add_ps(vout##J, _mm256_mul_ps(lik8, vr##J)); \
-
-                        OUTER_AVX_J(0);
-                        OUTER_AVX_J(1);
-                        OUTER_AVX_J(2);
-                        OUTER_AVX_J(3);
-                    }
-
-                    outp8[0] = _mm256_add_ps(outp8[0], vout0);
-                    outp8[1] = _mm256_add_ps(outp8[1], vout1);
-                    outp8[2] = _mm256_add_ps(outp8[2], vout2);
-                    outp8[3] = _mm256_add_ps(outp8[3], vout3);
-                }
-            }
-        }
-    }
-}
 #endif
 
 
 #ifdef __FMA__
-static void
-matmul_x86_fma(float * __restrict out,
-               const float* __restrict inL,
-               const float* __restrict inR,
-               unsigned int n)
-{
-    unsigned int block_size = 32;
-    int i0, i;
 
-#pragma omp parallel for schedule(dynamic)
-    for (i0=0; i0<n; i0+=block_size) {
-        for (int j0=0; j0<n; j0+=block_size) {
-            for (int bi=0; bi<block_size; bi++) {
-                for (int bj=0; bj<block_size; bj+=8) {
-                    int i = i0+bi;
-                    int j = j0+bj;
-                    _mm256_store_ps(&out[i*n+j], _mm256_setzero_ps());
-                }
-            }
+#define AVX_OP(I,J)                                                  \
+    long j_##I##J = (J*8);                                              \
+    __m256 vr##I##J = _mm256_load_ps(&inRp[j_##I##J]);                  \
+    vout##I##_##J = _mm256_fmadd_ps(lik##I##_8, vr##I##J, vout##I##_##J); \
 
+#define AVX_FUNC_NAME matmul_x86_fma
+#include "avxfunc.h"
 
-            for (int k0=0; k0<n; k0+=block_size) {
-                for (int bi=0; bi<block_size; bi++) {
-                    int i = i0+bi;
-                    float *outp = &out[i*n+j0];
-                    __m256 *outp8 = (__m256*)outp;
-
-                    __m256 vout0 = _mm256_setzero_ps();
-                    __m256 vout1 = _mm256_setzero_ps();
-                    __m256 vout2 = _mm256_setzero_ps();
-                    __m256 vout3 = _mm256_setzero_ps();
-
-                    _mm_prefetch((const char*)(outp + n) ,_MM_HINT_T0);
-
-                    for (long bk=0; bk<block_size; bk++) {
-                        long k = k0+bk;
-
-                        const float *inRp = &inR[k*n+j0];
-
-                        _mm_prefetch((const char*)(inRp + n), _MM_HINT_T0);
-
-                        float lik = inL[i*n+k];
-                        __m256 lik8 = _mm256_set1_ps(lik);
-
-#define OUTER_AVX_J(J)                                               \
-                        long j_##J = (J*8);                          \
-                        __m256 vr##J = _mm256_load_ps(&inRp[j_##J]); \
-                        vout##J = _mm256_fmadd_ps(lik8, vr##J, vout##J);     \
-
-                        OUTER_AVX_J(0);
-                        OUTER_AVX_J(1);
-                        OUTER_AVX_J(2);
-                        OUTER_AVX_J(3);
-                    }
-
-                    outp8[0] = _mm256_add_ps(outp8[0], vout0);
-                    outp8[1] = _mm256_add_ps(outp8[1], vout1);
-                    outp8[2] = _mm256_add_ps(outp8[2], vout2);
-                    outp8[3] = _mm256_add_ps(outp8[3], vout3);
-                }
-            }
-        }
-    }
-}
 #endif
 
 
