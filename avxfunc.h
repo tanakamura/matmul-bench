@@ -51,7 +51,7 @@ AVX_FUNC_NAME(float * __restrict out,
                             __m256 vr2 = _mm256_load_ps(&inRp[16]);     \
                             __m256 vr3 = _mm256_load_ps(&inRp[24]);     \
                                                                         \
-                            _mm_prefetch((const char*)(inRp + n*2), _MM_HINT_T0); \
+                            _mm_prefetch((const char*)(inRp + n*3), _MM_HINT_T0); \
                                                                         \
                             AVX_OP(0,0);                                \
                             AVX_OP(0,1);                                \
@@ -65,6 +65,11 @@ AVX_FUNC_NAME(float * __restrict out,
                             AVX_OP(3,0);                                \
                             AVX_OP(3,1);                                \
                         }
+
+                        //__m256 vlik0 = *(__m256*)&inL[i0*n+k0+bk];
+                        //__m256 vlik1 = *(__m256*)&inL[i1*n+k0+bk];
+                        //__m256 vlik2 = *(__m256*)&inL[i2*n+k0+bk];
+                        //__m256 vlik3 = *(__m256*)&inL[i3*n+k0+bk];
 
                         __m256 lik0_8, lik1_8, lik2_8, lik3_8;
 
@@ -89,10 +94,10 @@ AVX_FUNC_NAME(float * __restrict out,
                         AVX_K8_L(3);
                         AVX_K8(3);
 
-                        vlik0 = _mm256_permute2f128_ps(vlik0,vlik0,0x11);
-                        vlik1 = _mm256_permute2f128_ps(vlik1,vlik1,0x11);
-                        vlik2 = _mm256_permute2f128_ps(vlik2,vlik2,0x11);
-                        vlik3 = _mm256_permute2f128_ps(vlik3,vlik3,0x11);
+                        //vlik0 = _mm256_permute2f128_ps(vlik0,vlik0,0x11);
+                        //vlik1 = _mm256_permute2f128_ps(vlik1,vlik1,0x11);
+                        //vlik2 = _mm256_permute2f128_ps(vlik2,vlik2,0x11);
+                        //vlik3 = _mm256_permute2f128_ps(vlik3,vlik3,0x11);
 
                         AVX_K8_L(4);
                         AVX_K8(4);
