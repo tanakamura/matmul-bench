@@ -28,3 +28,7 @@
   - FMA 版 1536x1536 104.93163[GFLOPS]
   - 理論値 4 x 8 x 4 x 3.2 = 409.6
   - 25.6%
+ * Atom N550 (1.5GHz, Silverthone, 2core 4thred, Linux)
+  - SSE 版 512x512 3.57132[GFLOPS]
+  - 理論値 2 x 4 x 2 x 1.5 = 24.0
+  - 14.9%
