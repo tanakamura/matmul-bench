@@ -25,9 +25,9 @@
   - 理論値 4 x 4 x 2 x 1.8 = 57.6
   - 15.4%
  * i7-4770R (3.2GHz, Haswell, 4core, 8thread, Win 64bit)
-  - FMA 版 1536x1536 104.93163[GFLOPS]
+  - FMA 版 1536x1536 124.44447[GFLOPS]
   - 理論値 4 x 8 x 4 x 3.2 = 409.6
-  - 25.6%
+  - 30.4%
  * Atom N550 (1.5GHz, Bonnell, 2core 4thred, Linux)
   - SSE 版 512x512 3.57132[GFLOPS]
   - 理論値 2 x 4 x 2 x 1.5 = 24.0

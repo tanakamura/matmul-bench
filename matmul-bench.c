@@ -3,7 +3,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <malloc.h>
+
+#ifdef __OPENMP__
 #include <omp.h>
+#endif
 
 #ifdef __SSE__
 #ifdef _WIN32
@@ -334,9 +337,7 @@ matmul_block_outer_sse_omp(float * __restrict out,
 
 #ifdef __AVX__
 #define AVX_OP(I,J)                                                     \
-    long j_##I##J = (J*8);                                              \
-    __m256 vr##I##J = _mm256_load_ps(&inRp[j_##I##J]);                  \
-    vout##I##_##J = _mm256_add_ps(vout##I##_##J, _mm256_mul_ps(lik##I##_8, vr##I##J)); \
+    vout##I##_##J = _mm256_add_ps(vout##I##_##J, _mm256_mul_ps(lik##I##_8, vr##J)); \
 
 #define AVX_FUNC_NAME matmul_block_outer_avx_omp
 #include "avxfunc.h"
@@ -347,9 +348,7 @@ matmul_block_outer_sse_omp(float * __restrict out,
 #ifdef __FMA__
 
 #define AVX_OP(I,J)                                                  \
-    long j_##I##J = (J*8);                                              \
-    __m256 vr##I##J = _mm256_load_ps(&inRp[j_##I##J]);                  \
-    vout##I##_##J = _mm256_fmadd_ps(lik##I##_8, vr##I##J, vout##I##_##J); \
+    vout##I##_##J = _mm256_fmadd_ps(lik##I##_8, vr##J, vout##I##_##J); \
 
 #define AVX_FUNC_NAME matmul_x86_fma
 #include "avxfunc.h"

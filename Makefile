@@ -14,7 +14,7 @@ endif
 
 LDFLAGS=-g $(CFLAGS)
 
-matmul-bench.o: matmul-bench.c
+matmul-bench.o: matmul-bench.c avxfunc.h
 #matmul-bench.o: matmul-bench.s
 #	$(CC) -o $@ $< $(CFLAGS) -c
 
