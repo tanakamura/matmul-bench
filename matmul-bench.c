@@ -35,6 +35,9 @@ static float *out_x86_fma;
 static float *out_block_outer_neon_omp;
 static float *out_neon;
 
+#define STRINGIZE_(a) #a
+#define STRINGIZE(a) STRINGIZE_(a)
+
 #ifdef _WIN32
 #include <windows.h>
 
@@ -369,8 +372,6 @@ matmul_neon(float * __restrict out,
                     }
 
                     const float *inRp1 = (float*)&inR[k0*n+j0];
-                    const float *inL1_0 = inL + i0*n + k0;
-                    const float *inL1_1 = inL + i1*n + k0;
 
                     const float32x4_t *inRp;
 
@@ -382,37 +383,86 @@ matmul_neon(float * __restrict out,
                     float32x4_t lik4_0;
                     float32x4_t lik4_1;
 
+#if 0
+                    const float32x2_t *inL1_0 = (float32x2_t*)(inL + i0*n + k0);
+                    const float32x2_t *inL1_1 = (float32x2_t*)(inL + i1*n + k0);
+
+#define x_vmlaq_n_f32(a, b, c, n)                                       \
+    __asm__ __volatile__ ("vmla.f32 %q[A], %q[B], %P[C][" STRINGIZE(n) "]\n\t" \
+                          :[A]"+w"(a)                                   \
+                          :[B]"w"(b), [C]"x"(c));
+                    
+
 #define NEON_K(K)                                                       \
                     {                                                   \
-                                                                        \
                         inRp = (float32x4_t*)(inRp1);                   \
                         __builtin_prefetch(inRp1 + n*2);                \
                         vr0 = inRp[0];                                  \
                         vr1 = inRp[1];                                  \
                         vr2 = inRp[2];                                  \
                         vr3 = inRp[3];                                  \
-                        lik4_0 = vdupq_n_f32(inL1_0[0]);                \
-                        lik4_1 = vdupq_n_f32(inL1_1[0]);                \
                                                                         \
-                        vout0_0 = vmlaq_f32(vout0_0, lik4_0, vr0);      \
-                        vout0_1 = vmlaq_f32(vout0_1, lik4_0, vr1);      \
-                        vout0_2 = vmlaq_f32(vout0_2, lik4_0, vr2);      \
-                        vout0_3 = vmlaq_f32(vout0_3, lik4_0, vr3);      \
+                        x_vmlaq_n_f32(vout0_0, vr0, lik2_0, K);         \
+                        x_vmlaq_n_f32(vout0_1, vr1, lik2_0, K);         \
+                        x_vmlaq_n_f32(vout0_2, vr2, lik2_0, K);         \
+                        x_vmlaq_n_f32(vout0_3, vr3, lik2_0, K);         \
                                                                         \
-                        vout1_0 = vmlaq_f32(vout1_0, lik4_1, vr0);      \
-                        vout1_1 = vmlaq_f32(vout1_1, lik4_1, vr1);      \
-                        vout1_2 = vmlaq_f32(vout1_2, lik4_1, vr2);      \
-                        vout1_3 = vmlaq_f32(vout1_3, lik4_1, vr3);      \
+                        x_vmlaq_n_f32(vout1_0, vr0, lik2_1, K);         \
+                        x_vmlaq_n_f32(vout1_1, vr1, lik2_1, K);         \
+                        x_vmlaq_n_f32(vout1_2, vr2, lik2_1, K);         \
+                        x_vmlaq_n_f32(vout1_3, vr3, lik2_1, K);         \
                                                                         \
                         inRp1 += n;                                     \
-                        inL1_0++;                                       \
-                        inL1_1++;                                       \
                     }
 
+                    for (int bk=0; bk<block_size_k; bk+=2) {
+                        float32x2_t lik2_0 = inL1_0[0];
+                        float32x2_t lik2_1 = inL1_1[0];
+
+                        NEON_K(0);
+                        NEON_K(1);
+
+                        inL1_0++;
+                        inL1_1++;
+                    }
+#else
+#define NEON_K(K)                                                       \
+                    {                                                   \
+                        inRp = (float32x4_t*)(inRp1);                   \
+                        __builtin_prefetch(inRp1 + n*2);                \
+                        vr0 = inRp[0];                                  \
+                        vr1 = inRp[1];                                  \
+                        vr2 = inRp[2];                                  \
+                        vr3 = inRp[3];                                  \
+                                                                        \
+                        vout0_0 = vmlaq_f32(vout0_0, vr0, lik4_0);         \
+                        vout0_1 = vmlaq_f32(vout0_1, vr1, lik4_0);         \
+                        vout0_2 = vmlaq_f32(vout0_2, vr2, lik4_0);         \
+                        vout0_3 = vmlaq_f32(vout0_3, vr3, lik4_0);         \
+                                                                        \
+                        vout1_0 = vmlaq_f32(vout1_0, vr0, lik4_1);         \
+                        vout1_1 = vmlaq_f32(vout1_1, vr1, lik4_1);         \
+                        vout1_2 = vmlaq_f32(vout1_2, vr2, lik4_1);         \
+                        vout1_3 = vmlaq_f32(vout1_3, vr3, lik4_1);      \
+                                                                        \
+                                                                        \
+                    inL1_0++;                   \
+                    inL1_1++;                                           \
+                        inRp1 += n;                                     \
+                    }
+
+                    const float *inL1_0 = (float*)(inL + i0*n + k0);
+                    const float *inL1_1 = (float*)(inL + i1*n + k0);
+
                     for (int bk=0; bk<block_size_k; bk++) {
+                        float32x4_t lik4_0 = vdupq_n_f32(inL1_0[0]);
+                        float32x4_t lik4_1 = vdupq_n_f32(inL1_1[0]);
+
                         NEON_K(0);
                     }
 
+
+#endif
                     outp4_0[0] = vout0_0;
                     outp4_0[1] = vout0_1;
                     outp4_0[2] = vout0_2;
