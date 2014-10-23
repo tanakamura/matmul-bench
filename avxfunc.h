@@ -7,7 +7,7 @@ AVX_FUNC_NAME(float * __restrict out,
     unsigned long block_size = 16;
     unsigned long block_size_k = 64;
 
-    int i00, i;
+    int i00;
 
 #pragma omp parallel for schedule(dynamic)
     for (i00=0; i00<n; i00+=block_size) {
@@ -39,7 +39,7 @@ AVX_FUNC_NAME(float * __restrict out,
                     __m256 vout3_1 = _mm256_setzero_ps();
 
                     for (long bk=0; bk<block_size_k; bk+=8) {
-                        float lik0, lik1, lik2, lik3;
+                        //float lik0, lik1, lik2, lik3;
 
 #define AVX_K8(K)                                                       \
                         {                                               \
@@ -48,8 +48,6 @@ AVX_FUNC_NAME(float * __restrict out,
                                                                         \
                             __m256 vr0 = _mm256_load_ps(&inRp[0]);      \
                             __m256 vr1 = _mm256_load_ps(&inRp[8]);      \
-                            __m256 vr2 = _mm256_load_ps(&inRp[16]);     \
-                            __m256 vr3 = _mm256_load_ps(&inRp[24]);     \
                                                                         \
                             _mm_prefetch((const char*)(inRp + n*3), _MM_HINT_T0); \
                                                                         \
@@ -73,17 +71,22 @@ AVX_FUNC_NAME(float * __restrict out,
 
                         __m256 lik0_8, lik1_8, lik2_8, lik3_8;
 
-//#define AVX_K8_L(K)                             \
-//                        lik0_8 = _mm256_shuffle_ps(vlik0,vlik0,_MM_SHUFFLE(K,K,K,K)); \
-//                        lik1_8 = _mm256_shuffle_ps(vlik1,vlik1,_MM_SHUFFLE(K,K,K,K)); \
-//                        lik2_8 = _mm256_shuffle_ps(vlik2,vlik2,_MM_SHUFFLE(K,K,K,K)); \
-//                        lik3_8 = _mm256_shuffle_ps(vlik3,vlik3,_MM_SHUFFLE(K,K,K,K)); \
+#if 0
+#define AVX_K8_L(K)                             \
+                        lik0_8 = _mm256_shuffle_ps(vlik0,vlik0,_MM_SHUFFLE(K,K,K,K)); \
+                        lik1_8 = _mm256_shuffle_ps(vlik1,vlik1,_MM_SHUFFLE(K,K,K,K)); \
+                        lik2_8 = _mm256_shuffle_ps(vlik2,vlik2,_MM_SHUFFLE(K,K,K,K)); \
+                        lik3_8 = _mm256_shuffle_ps(vlik3,vlik3,_MM_SHUFFLE(K,K,K,K)); \
+
+#else
 
 #define AVX_K8_L(K)                             \
                         lik0_8 = _mm256_set1_ps(inL[i0*n+k0+bk+K]); \
                         lik1_8 = _mm256_set1_ps(inL[i1*n+k0+bk+K]); \
                         lik2_8 = _mm256_set1_ps(inL[i2*n+k0+bk+K]); \
                         lik3_8 = _mm256_set1_ps(inL[i3*n+k0+bk+K]); \
+
+#endif
 
                         AVX_K8_L(0);
                         AVX_K8(0);

@@ -9,9 +9,9 @@
   - 理論値 6 x 8 x 2 x 3.4 = 326.4[GFLOPS]
   - 53.4%
  * Zynq 7020 (667MHz, Cortex-A9, 2core, Linux)
-  - A9 版 512x512 0.91347[GFLOPS]
+  - NEON 版 512x512 1.25446[GFLOPS]
   - 理論値 2 x 2 x 2 x 0.667 = 5.336[GFLOPS]
-  - 17.1%
+  - 23.5%
  * Celeron N2807 (1.58GHz, Silvermont, 2core, Linux)
   - SSE 版 512x512 7.76393[GFLOPS]
   - 理論値 2 x 4 x 2 x 1.58 = 25.28[GFLOPS]
@@ -20,10 +20,10 @@
   - SSE 版 512x512 11.09515[GFLOPS]
   - 理論値 4 x 4 x 2 x 1.33 = 42.56
   - 26.1%
- * Tegra4 (1.8GHz, Cortex-A15, 4core, Android)
-  - NEON 版 512x512 8.85087[GFLOPS]
+ * Tegra4 (1.8GHz, Cortex-A15, 4core, Android) (なんか4コア使うとクロックは1.6GHzになる)
+  - NEON 版 1024x1024 9.80157[GFLOPS]
   - 理論値 4 x 4 x 2 x 1.8 = 57.6
-  - 15.4%
+  - 17.0%
  * i7-4770R (3.2GHz, Haswell, 4core, 8thread, Win 64bit)
   - FMA 版 1536x1536 124.44447[GFLOPS]
   - 理論値 4 x 8 x 4 x 3.2 = 409.6
