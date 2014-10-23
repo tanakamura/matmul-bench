@@ -20,6 +20,14 @@
 #include <arm_neon.h>
 #endif
 
+
+#define M8(M)                                   \
+    M(0) M(1) M(2) M(3) M(4) M(5) M(6) M(7)
+
+#define M16(M)                                  \
+    M(0) M(1) M(2) M(3) M(4) M(5) M(6) M(7)     \
+    M(8) M(9) M(10) M(11) M(12) M(13) M(14) M(15)
+
 int n;
 
 static float *in0;
@@ -37,6 +45,9 @@ static float *out_neon;
 
 #define STRINGIZE_(a) #a
 #define STRINGIZE(a) STRINGIZE_(a)
+
+#define CONCAT_(a,b) a ## b
+#define CONCAT(a,b) CONCAT_(a,b)
 
 #ifdef _WIN32
 #include <windows.h>
@@ -677,6 +688,7 @@ bench(int iter)
 int
 main(int argc, char **argv)
 {
+    int iter = 3;
     sec_init();
 
     n = 512;
@@ -690,6 +702,10 @@ main(int argc, char **argv)
         omp_set_num_threads(atoi(argv[2]));
     }
 #endif
+
+    if (argc >= 4) {
+        iter = atoi(argv[3]);
+    }
 
     int align = 64;
 
@@ -722,9 +738,9 @@ main(int argc, char **argv)
     dump_mat(n, in0);
     dump_mat(n, in1);
 
-    bench(0);
-    bench(1);
-    bench(2);
+    for (int i=0; i<iter; i++) {
+        bench(i);
+    }
 
     _aligned_free(in0);
     _aligned_free(in1);
