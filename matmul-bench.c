@@ -8,6 +8,12 @@
 #include <omp.h>
 #endif
 
+#ifdef __GNUC__
+#define NOINLINE __attribute__((noinline,noclone))
+#else
+#define NOINLINE __declspec(noinline)
+#endif
+
 #ifdef __SSE__
 #ifdef _WIN32
 #include <intrin.h>

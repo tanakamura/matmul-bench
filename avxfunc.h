@@ -4,7 +4,7 @@
 #endif
 
 
-static __declspec(noinline) void
+static NOINLINE void
 CONCAT(AVX_FUNC_NAME,_)(long i00,
                         long j0,
                         long k0,
