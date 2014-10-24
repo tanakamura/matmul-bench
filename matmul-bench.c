@@ -631,7 +631,7 @@ bench(int iter)
 
 #ifdef __AVX__
             t0 = sec();
-            matmul_block_outer_avx_omp(out_block_outer_avx_omp, in0, in1, n);
+            matmul_block_outer_avx_omp(out_block_outer_avx_omp, in0_plus1line, in1_plus1line, n, n+16);
             t1 = sec();
 
             dump_flops("avx", n, t1-t0, out_block_outer_avx_omp, iter);
@@ -641,7 +641,7 @@ bench(int iter)
 
 #ifdef __FMA__
             t0 = sec();
-            matmul_x86_fma(out_x86_fma, in0, in1, n);
+            matmul_x86_fma(out_x86_fma, in0_plus1line, in1_plus1line, n, n+16);
             t1 = sec();
 
             dump_flops("fma", n, t1-t0, out_x86_fma, iter);
