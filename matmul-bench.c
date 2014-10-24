@@ -471,10 +471,9 @@ neon_(unsigned int i00,
         inL00++;                                \
     }
 
-    for (int bk=0; bk<64; bk+=2) {
+    for (int bk=0; bk<64; bk++) {
         float32x2_t lik;
         NEON_K(0);
-        NEON_K(1);
     }
 
 
