@@ -459,7 +459,6 @@ neon_(unsigned int i00,
     __asm__ __volatile__ ("movs r4, #64\n"
                           ".p2align 4\n\t"
                           "1:\n\t"
-                          "pld [%[inRp1_pld]]\n\t"
                           "vldmia %[inRp1], {q8-q11}\n\t"
 
                           "add %[inRp1], %[inRp1], %[pitch_f32]\n\t"
@@ -468,6 +467,7 @@ neon_(unsigned int i00,
                           "add %[inRp1_pld], %[inRp1_pld], %[pitch_f32]\n\t"
                           "vld1.32 {d26[], d27[]}, [%[inL00_1]]!\n\t"
 
+                          "pld [%[inRp1_pld]]\n\t"
                           "subs r4, r4, #1\n\t"
 
                           "vmla.f32 %q[vout0_0], q8, q12\n\t"
