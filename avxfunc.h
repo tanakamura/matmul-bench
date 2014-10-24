@@ -4,7 +4,7 @@
 #endif
 
 
-static NOINLINE void
+static void
 CONCAT(AVX_FUNC_NAME,_)(long i00,
                         long j0,
                         long k0,
@@ -12,7 +12,7 @@ CONCAT(AVX_FUNC_NAME,_)(long i00,
                         float * __restrict out,
                         const float* __restrict inL,
                         const float* __restrict inR,
-                        unsigned int n)
+                        long n)
 {
     long i0 = i00+bi+0;
     long i1 = i00+bi+1;
