@@ -89,6 +89,7 @@ CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
     const float *inR0 = &inR[k0*pitch_f32+j0];
 
     for (int i=0; i<8; i++) {
+        _mm_prefetch(inL0 + 16, _MM_HINT_T0);
         M16(LC);
     }
 
