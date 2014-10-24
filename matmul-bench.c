@@ -329,6 +329,178 @@ matmul_block_outer_sse_omp(float * __restrict out,
 
 #ifdef __ARM_NEON__
 
+static NOINLINE void
+neon_(unsigned int i00,
+      unsigned int j0,
+      unsigned int k0,
+      unsigned int bi,
+      float *__restrict out,
+      const float *__restrict inL,
+      const float *__restrict inR,
+      unsigned int n)
+{
+    int i0 = i00+bi+0;
+
+    float *outp0 = &out[i0*n+j0];
+
+#define outp1 (outp0+n*1)
+#define outp2 (outp0+n*2)
+#define outp3 (outp0+n*3)
+
+    float32x2_t *outp2_0 = (float32x2_t*)outp0;
+    float32x2_t *outp2_1 = (float32x2_t*)outp1;
+    float32x2_t *outp2_2 = (float32x2_t*)outp2;
+    float32x2_t *outp2_3 = (float32x2_t*)outp3;
+
+    __builtin_prefetch(outp0+16);
+    __builtin_prefetch(outp1+16);
+    __builtin_prefetch(outp2+16);
+    __builtin_prefetch(outp3+16);
+
+    /* 4x4x(2simd) reg */
+    float32x2_t vout0_0;
+    float32x2_t vout0_1;
+    float32x2_t vout0_2;
+    float32x2_t vout0_3;
+
+    float32x2_t vout1_0;
+    float32x2_t vout1_1;
+    float32x2_t vout1_2;
+    float32x2_t vout1_3;
+
+    float32x2_t vout2_0;
+    float32x2_t vout2_1;
+    float32x2_t vout2_2;
+    float32x2_t vout2_3;
+
+    float32x2_t vout3_0;
+    float32x2_t vout3_1;
+    float32x2_t vout3_2;
+    float32x2_t vout3_3;
+
+    if (k0==0) {
+        vout0_0 = vdup_n_f32(0);
+        vout0_1 = vdup_n_f32(0);
+        vout0_2 = vdup_n_f32(0);
+        vout0_3 = vdup_n_f32(0);
+        vout1_0 = vdup_n_f32(0);
+        vout1_1 = vdup_n_f32(0);
+        vout1_2 = vdup_n_f32(0);
+        vout1_3 = vdup_n_f32(0);
+        vout2_0 = vdup_n_f32(0);
+        vout2_1 = vdup_n_f32(0);
+        vout2_2 = vdup_n_f32(0);
+        vout2_3 = vdup_n_f32(0);
+        vout3_0 = vdup_n_f32(0);
+        vout3_1 = vdup_n_f32(0);
+        vout3_2 = vdup_n_f32(0);
+        vout3_3 = vdup_n_f32(0);
+    } else {
+        vout0_0 = outp2_0[0];
+        vout0_1 = outp2_0[1];
+        vout0_2 = outp2_0[2];
+        vout0_3 = outp2_0[3];
+        vout1_0 = outp2_1[0];
+        vout1_1 = outp2_1[1];
+        vout1_2 = outp2_1[2];
+        vout1_3 = outp2_1[3];
+        vout2_0 = outp2_2[0];
+        vout2_1 = outp2_2[1];
+        vout2_2 = outp2_2[2];
+        vout2_3 = outp2_2[3];
+        vout3_0 = outp2_3[0];
+        vout3_1 = outp2_3[1];
+        vout3_2 = outp2_3[2];
+        vout3_3 = outp2_3[3];
+    }
+
+    const float *inRp1 = (float*)&inR[k0*n+j0];
+
+    const float32x2_t *inRp;
+
+    float32x2_t vr0;
+    float32x2_t vr1;
+    float32x2_t vr2;
+    float32x2_t vr3;
+
+    const float *__restrict inL00 = (inL + i0*n + k0);
+
+#define x_vmlaq_n_f32(a, b, c, n)                                       \
+    __asm__ __volatile__ ("vmla.f32 %P[A], %P[B], %P[C][" STRINGIZE(n) "]\n\t" \
+                          :[A]"+w"(a)                                   \
+                          :[B]"w"(b), [C]"x"(c));
+
+#define NEON_K(K)                               \
+    {                                           \
+        inRp = (float32x2_t*)(inRp1);           \
+        __builtin_prefetch(inRp1 + n*2);        \
+        const float *inL00_k = inL00;           \
+        vr0 = inRp[0];                          \
+        vr1 = inRp[1];                          \
+        vr2 = inRp[2];                          \
+        vr3 = inRp[3];                          \
+                                                \
+        lik = vdup_n_f32(inL00_k[0]);           \
+        inL00_k += n;                           \
+        vout0_0 = vmla_f32(vout0_0, vr0, lik);  \
+        vout0_1 = vmla_f32(vout0_1, vr1, lik);  \
+        vout0_2 = vmla_f32(vout0_2, vr2, lik);  \
+        vout0_3 = vmla_f32(vout0_3, vr3, lik);  \
+                                                \
+        lik = vdup_n_f32(inL00_k[0]);           \
+        inL00_k += n;                           \
+        vout1_0 = vmla_f32(vout1_0, vr0, lik);  \
+        vout1_1 = vmla_f32(vout1_1, vr1, lik);  \
+        vout1_2 = vmla_f32(vout1_2, vr2, lik);  \
+        vout1_3 = vmla_f32(vout1_3, vr3, lik);  \
+                                                \
+        lik = vdup_n_f32(inL00_k[0]);           \
+        inL00_k += n;                           \
+        vout2_0 = vmla_f32(vout2_0, vr0, lik);  \
+        vout2_1 = vmla_f32(vout2_1, vr1, lik);  \
+        vout2_2 = vmla_f32(vout2_2, vr2, lik);  \
+        vout2_3 = vmla_f32(vout2_3, vr3, lik);  \
+                                                \
+        lik = vdup_n_f32(inL00_k[0]);           \
+        vout3_0 = vmla_f32(vout3_0, vr0, lik);  \
+        vout3_1 = vmla_f32(vout3_1, vr1, lik);  \
+        vout3_2 = vmla_f32(vout3_2, vr2, lik);  \
+        vout3_3 = vmla_f32(vout3_3, vr3, lik);  \
+                                                \
+        inRp1 += n;                             \
+        inL00++;                                \
+    }
+
+    for (int bk=0; bk<64; bk+=2) {
+        float32x2_t lik;
+        NEON_K(0);
+        NEON_K(1);
+    }
+
+
+    outp2_0[0] = vout0_0;
+    outp2_0[1] = vout0_1;
+    outp2_0[2] = vout0_2;
+    outp2_0[3] = vout0_3;
+
+    outp2_1[0] = vout1_0;
+    outp2_1[1] = vout1_1;
+    outp2_1[2] = vout1_2;
+    outp2_1[3] = vout1_3;
+
+    outp2_2[0] = vout2_0;
+    outp2_2[1] = vout2_1;
+    outp2_2[2] = vout2_2;
+    outp2_2[3] = vout2_3;
+
+    outp2_3[0] = vout3_0;
+    outp2_3[1] = vout3_1;
+    outp2_3[2] = vout3_2;
+    outp2_3[3] = vout3_3;
+
+
+}
+
 static void
 matmul_neon(float * __restrict out,
             const float* __restrict inL,
@@ -346,162 +518,7 @@ matmul_neon(float * __restrict out,
         for (int j0=0; j0<n; j0+=block_size_j) {
             for (int k0=0; k0<n; k0+=block_size_k) {
                 for (int bi=0; bi<block_size_i; bi+=4) {
-                    int i0 = i00+bi+0;
-
-                    float *outp0 = &out[i0*n+j0];
-
-#define outp1 (outp0+n*1)
-#define outp2 (outp0+n*2)
-#define outp3 (outp0+n*3)
-
-                    float32x2_t *outp2_0 = (float32x2_t*)outp0;
-                    float32x2_t *outp2_1 = (float32x2_t*)outp1;
-                    float32x2_t *outp2_2 = (float32x2_t*)outp2;
-                    float32x2_t *outp2_3 = (float32x2_t*)outp3;
-
-                    __builtin_prefetch(outp0);
-                    __builtin_prefetch(outp1);
-                    __builtin_prefetch(outp2);
-                    __builtin_prefetch(outp3);
-
-                    /* 4x4x(2simd) reg */
-                    float32x2_t vout0_0;
-                    float32x2_t vout0_1;
-                    float32x2_t vout0_2;
-                    float32x2_t vout0_3;
-
-                    float32x2_t vout1_0;
-                    float32x2_t vout1_1;
-                    float32x2_t vout1_2;
-                    float32x2_t vout1_3;
-
-                    float32x2_t vout2_0;
-                    float32x2_t vout2_1;
-                    float32x2_t vout2_2;
-                    float32x2_t vout2_3;
-
-                    float32x2_t vout3_0;
-                    float32x2_t vout3_1;
-                    float32x2_t vout3_2;
-                    float32x2_t vout3_3;
-
-                    vout0_0 = vdup_n_f32(0);
-                    vout0_1 = vdup_n_f32(0);
-                    vout0_2 = vdup_n_f32(0);
-                    vout0_3 = vdup_n_f32(0);
-                    vout1_0 = vdup_n_f32(0);
-                    vout1_1 = vdup_n_f32(0);
-                    vout1_2 = vdup_n_f32(0);
-                    vout1_3 = vdup_n_f32(0);
-                    vout2_0 = vdup_n_f32(0);
-                    vout2_1 = vdup_n_f32(0);
-                    vout2_2 = vdup_n_f32(0);
-                    vout2_3 = vdup_n_f32(0);
-                    vout3_0 = vdup_n_f32(0);
-                    vout3_1 = vdup_n_f32(0);
-                    vout3_2 = vdup_n_f32(0);
-                    vout3_3 = vdup_n_f32(0);
-
-                    const float *inRp1 = (float*)&inR[k0*n+j0];
-
-                    const float32x2_t *inRp;
-
-                    float32x2_t vr0;
-                    float32x2_t vr1;
-                    float32x2_t vr2;
-                    float32x2_t vr3;
-
-                    const float *inL00 = (inL + i0*n + k0);
-
-#define x_vmlaq_n_f32(a, b, c, n)                                       \
-    __asm__ __volatile__ ("vmla.f32 %P[A], %P[B], %P[C][" STRINGIZE(n) "]\n\t" \
-                          :[A]"+w"(a)                                   \
-                          :[B]"w"(b), [C]"x"(c));
-
-#define NEON_K(K)                                                       \
-                    {                                                   \
-                        inRp = (float32x2_t*)(inRp1);                   \
-                        __builtin_prefetch(inRp1 + n*2);                \
-                        vr0 = inRp[0];                                  \
-                        vr1 = inRp[1];                                  \
-                        vr2 = inRp[2];                                  \
-                        vr3 = inRp[3];                                  \
-                                                                        \
-                        lik = vdup_n_f32(inL00[0*n+bk+K]);              \
-                        vout0_0 = vmla_f32(vout0_0, vr0, lik);          \
-                        vout0_1 = vmla_f32(vout0_1, vr1, lik);          \
-                        vout0_2 = vmla_f32(vout0_2, vr2, lik);          \
-                        vout0_3 = vmla_f32(vout0_3, vr3, lik);          \
-                                                                        \
-                        lik = vdup_n_f32(inL00[1*n+bk+K]);              \
-                        vout1_0 = vmla_f32(vout1_0, vr0, lik);          \
-                        vout1_1 = vmla_f32(vout1_1, vr1, lik);          \
-                        vout1_2 = vmla_f32(vout1_2, vr2, lik);          \
-                        vout1_3 = vmla_f32(vout1_3, vr3, lik);          \
-                                                                        \
-                        lik = vdup_n_f32(inL00[2*n+bk+K]);              \
-                        vout2_0 = vmla_f32(vout2_0, vr0, lik);          \
-                        vout2_1 = vmla_f32(vout2_1, vr1, lik);          \
-                        vout2_2 = vmla_f32(vout2_2, vr2, lik);          \
-                        vout2_3 = vmla_f32(vout2_3, vr3, lik);          \
-                                                                        \
-                        lik = vdup_n_f32(inL00[3*n+bk+K]);              \
-                        vout3_0 = vmla_f32(vout3_0, vr0, lik);          \
-                        vout3_1 = vmla_f32(vout3_1, vr1, lik);          \
-                        vout3_2 = vmla_f32(vout3_2, vr2, lik);          \
-                        vout3_3 = vmla_f32(vout3_3, vr3, lik);          \
-                                                                        \
-                        inRp1 += n;                                     \
-                    }
-
-                    for (int bk=0; bk<block_size_k; bk+=2) {
-                        float32x2_t lik;
-                        NEON_K(0);
-                        NEON_K(1);
-                    }
-
-                    if (k0==0) {
-                        outp2_0[0] = vout0_0;
-                        outp2_0[1] = vout0_1;
-                        outp2_0[2] = vout0_2;
-                        outp2_0[3] = vout0_3;
-
-                        outp2_1[0] = vout1_0;
-                        outp2_1[1] = vout1_1;
-                        outp2_1[2] = vout1_2;
-                        outp2_1[3] = vout1_3;
-
-                        outp2_2[0] = vout2_0;
-                        outp2_2[1] = vout2_1;
-                        outp2_2[2] = vout2_2;
-                        outp2_2[3] = vout2_3;
-
-                        outp2_3[0] = vout3_0;
-                        outp2_3[1] = vout3_1;
-                        outp2_3[2] = vout3_2;
-                        outp2_3[3] = vout3_3;
-                    } else {
-                        outp2_0[0] = vadd_f32(outp2_0[0], vout0_0);
-                        outp2_0[1] = vadd_f32(outp2_0[1], vout0_1);
-                        outp2_0[2] = vadd_f32(outp2_0[2], vout0_2);
-                        outp2_0[3] = vadd_f32(outp2_0[3], vout0_3);
-
-                        outp2_1[0] = vadd_f32(outp2_1[0], vout1_0);
-                        outp2_1[1] = vadd_f32(outp2_1[1], vout1_1);
-                        outp2_1[2] = vadd_f32(outp2_1[2], vout1_2);
-                        outp2_1[3] = vadd_f32(outp2_1[3], vout1_3);
-
-                        outp2_2[0] = vadd_f32(outp2_2[0], vout2_0);
-                        outp2_2[1] = vadd_f32(outp2_2[1], vout2_1);
-                        outp2_2[2] = vadd_f32(outp2_2[2], vout2_2);
-                        outp2_2[3] = vadd_f32(outp2_2[3], vout2_3);
-
-                        outp2_3[0] = vadd_f32(outp2_3[0], vout3_0);
-                        outp2_3[1] = vadd_f32(outp2_3[1], vout3_1);
-                        outp2_3[2] = vadd_f32(outp2_3[2], vout3_2);
-                        outp2_3[3] = vadd_f32(outp2_3[3], vout3_3);
-                    }
-
+                    neon_(i00, j0, k0, bi, out, inL, inR, n);
                 }
             }
         }
