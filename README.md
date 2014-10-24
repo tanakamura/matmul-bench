@@ -5,10 +5,10 @@
 (理論値 : コア x SIMD x MulAdd x freq)
 
  * i7-4930K (3.40GHz, Ivy, 6core, 12thread, Linux, Turbo 3.9GHz あり)
-  - AVX 版 1536x1536 174.42793[GFLOPS]
+  - AVX 版 1536x1536 183.26048[GFLOPS]
   - 理論値 6 x 8 x 2 x 3.4 = 326.4[GFLOPS]
   - -std=gnu99 -Wall -O2 -fopenmp -ffast-math -mtune=native -save-temps -march=native
-  - 53.4%
+  - 56.1%
  * Zynq 7020 (667MHz, Cortex-A9, 2core, Linux)
   - NEON 版 512x512 1.25446[GFLOPS]
   - 理論値 2 x 2 x 2 x 0.667 = 5.336[GFLOPS]
