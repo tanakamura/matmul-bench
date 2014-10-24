@@ -131,16 +131,17 @@ AVX_FUNC_NAME(float * __restrict out,
               const float* __restrict inR,
               unsigned int n)
 {
-    unsigned long block_size = 16;
+    unsigned long block_size_i = 32;
+    unsigned long block_size_j = 16;
     unsigned long block_size_k = 64;
 
     long i00;
 
 #pragma omp parallel for schedule(dynamic)
-    for (i00=0; i00<n; i00+=block_size) {
-        for (long j0=0; j0<n; j0+=block_size) {
+    for (i00=0; i00<n; i00+=block_size_i) {
+        for (long j0=0; j0<n; j0+=block_size_j) {
             for (long k0=0; k0<n; k0+=block_size_k) {
-                for (long bi=0; bi<block_size; bi+=4) {
+                for (long bi=0; bi<block_size_i; bi+=4) {
                     CONCAT(AVX_FUNC_NAME,_)(i00,j0,k0,bi,
                                             out, inL, inR, n);
                 }
