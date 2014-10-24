@@ -4,7 +4,7 @@
 #endif
 
 
-static inline void
+static NOINLINE void
 CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
                         unsigned long j0,
                         unsigned long k0,
@@ -52,13 +52,13 @@ CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
                                                                 \
         lik0_8 = _mm256_set1_ps(*inL00);                         \
         inL00+=pitch_f32;                                        \
-        lik1_8 = _mm256_set1_ps(*inL00);                        \
-        inL00+=pitch_f32;                                        \
-        lik2_8 = _mm256_set1_ps(*inL00);                         \
-                                                                \
         vr0 = _mm256_load_ps(&inR0[0]);                         \
+                                                                \
         AVX_OP(0,0);                                            \
+        lik1_8 = _mm256_set1_ps(*inL00);                         \
+        inL00+=pitch_f32;                                        \
         AVX_OP(1,0);                                            \
+        lik2_8 = _mm256_set1_ps(*inL00);                        \
         AVX_OP(2,0);                                            \
                                                                 \
         vr1 = _mm256_load_ps(&inR0[8]);                         \
@@ -87,6 +87,10 @@ CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
 
     const float *inL0 = &inL[i0*pitch_f32+k0];
     const float *inR0 = &inR[k0*pitch_f32+j0];
+
+    //_mm_prefetch(inR0 + pitch_f32*1, _MM_HINT_T0);
+    //_mm_prefetch(inR0 + pitch_f32*2, _MM_HINT_T0);
+    //_mm_prefetch(inR0 + pitch_f32*3, _MM_HINT_T0);
 
     for (int i=0; i<8; i++) {
         _mm_prefetch(inL0 + 16, _MM_HINT_T0);
