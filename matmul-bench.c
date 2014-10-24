@@ -346,63 +346,53 @@ neon_(unsigned int i00,
     float *outp0 = &out[i0*n+j0];
 
 #define outp1 (outp0+n*1)
-#define outp2 (outp0+n*2)
-#define outp3 (outp0+n*3)
 
     float32x4_t *outp_0 = (float32x4_t*)outp0;
     float32x4_t *outp_1 = (float32x4_t*)outp1;
-    float32x4_t *outp_2 = (float32x4_t*)outp2;
-    float32x4_t *outp_3 = (float32x4_t*)outp3;
 
-    __builtin_prefetch(outp3+n*1);
-    __builtin_prefetch(outp3+n*2);
-    __builtin_prefetch(outp3+n*3);
-    __builtin_prefetch(outp3+n*4);
+    __builtin_prefetch(outp1+n*1);
+    __builtin_prefetch(outp1+n*2);
 
     /* 4x4x(2simd) reg */
     float32x4_t vout0_0;
     float32x4_t vout0_1;
+    float32x4_t vout0_2;
+    float32x4_t vout0_3;
 
     float32x4_t vout1_0;
     float32x4_t vout1_1;
+    float32x4_t vout1_2;
+    float32x4_t vout1_3;
 
-    float32x4_t vout2_0;
-    float32x4_t vout2_1;
-
-    float32x4_t vout3_0;
-    float32x4_t vout3_1;
 
     if (k0==0) {
         vout0_0 = vdupq_n_f32(0);
         vout0_1 = vdupq_n_f32(0);
+        vout0_2 = vdupq_n_f32(0);
+        vout0_3 = vdupq_n_f32(0);
         vout1_0 = vdupq_n_f32(0);
         vout1_1 = vdupq_n_f32(0);
-        vout2_0 = vdupq_n_f32(0);
-        vout2_1 = vdupq_n_f32(0);
-        vout3_0 = vdupq_n_f32(0);
-        vout3_1 = vdupq_n_f32(0);
+        vout1_2 = vdupq_n_f32(0);
+        vout1_3 = vdupq_n_f32(0);
     } else {
         vout0_0 = outp_0[0];
         vout0_1 = outp_0[1];
+        vout0_2 = outp_0[2];
+        vout0_3 = outp_0[3];
         vout1_0 = outp_1[0];
         vout1_1 = outp_1[1];
-        vout2_0 = outp_2[0];
-        vout2_1 = outp_2[1];
-        vout3_0 = outp_3[0];
-        vout3_1 = outp_3[1];
+        vout1_2 = outp_1[2];
+        vout1_3 = outp_1[3];
     }
 
     const float *inRp1 = (float*)&inR[k0*pitch_f32+j0];
 
     const float32x4_t *inRp;
 
-    float32x4_t vr0;
-    float32x4_t vr1;
+    float32x4_t vr0, vr1, vr2, vr3;
 
     const float *__restrict inL00_0 = (inL + (i0+0)*pitch_f32 + k0);
     const float *__restrict inL00_1 = (inL + (i0+1)*pitch_f32 + k0);
-    const float *__restrict inL00_2 = (inL + (i0+2)*pitch_f32 + k0);
-    const float *__restrict inL00_3 = (inL + (i0+3)*pitch_f32 + k0);
 
 #define x_vmlaq_n_f32(a, b, c, n)                                       \
     __asm__ __volatile__ ("vmla.f32 %P[A], %P[B], %P[C][" STRINGIZE(n) "]\n\t" \
@@ -413,32 +403,30 @@ neon_(unsigned int i00,
         inRp = (float32x4_t*)(inRp1);           \
         __builtin_prefetch(inRp1 + pitch_f32*4);        \
         vr0 = inRp[0];                          \
-        vr1 = inRp[1];                          \
+        vr1 = inRp[1];                                  \
+        vr2 = inRp[2];                          \
+        vr3 = inRp[3];                                  \
         inRp1 += pitch_f32;                             \
 
 #define NEON_LOAD_L()                             \
         lik0 = vdupq_n_f32(*inL00_0);             \
         lik1 = vdupq_n_f32(*inL00_1);             \
-        lik2 = vdupq_n_f32(*inL00_2);            \
-        lik3 = vdupq_n_f32(*inL00_3);             \
 
 #define NEON_CALC_OUT()                           \
         inL00_0++;                              \
         inL00_1++;                              \
-        inL00_2++;                              \
-        inL00_3++;                              \
                                                         \
         vout0_0 = vmlaq_f32(vout0_0, vr0, lik0);        \
         vout0_1 = vmlaq_f32(vout0_1, vr1, lik0);  \
-                                                 \
-        vout1_0 = vmlaq_f32(vout1_0, vr0, lik1);  \
+        vout0_2 = vmlaq_f32(vout0_2, vr2, lik0);  \
+        vout0_3 = vmlaq_f32(vout0_3, vr3, lik0);  \
+                                                        \
+        vout1_0 = vmlaq_f32(vout1_0, vr0, lik1);        \
         vout1_1 = vmlaq_f32(vout1_1, vr1, lik1);  \
-                                                \
-        vout2_0 = vmlaq_f32(vout2_0, vr0, lik2);  \
-        vout2_1 = vmlaq_f32(vout2_1, vr1, lik2);  \
-                                                \
-        vout3_0 = vmlaq_f32(vout3_0, vr0, lik3);  \
-        vout3_1 = vmlaq_f32(vout3_1, vr1, lik3);  \
+        vout1_2 = vmlaq_f32(vout1_2, vr2, lik1);  \
+        vout1_3 = vmlaq_f32(vout1_3, vr3, lik1);  \
+
+
 
 #define NEON_K(K)                               \
     {                                           \
@@ -447,7 +435,7 @@ neon_(unsigned int i00,
         NEON_CALC_OUT();                        \
     }
 
-    float32x4_t lik0, lik1, lik2, lik3;
+    float32x4_t lik0, lik1;
 
     for (int bk=0; bk<64; bk++) {
         NEON_K(0);
@@ -455,16 +443,13 @@ neon_(unsigned int i00,
 
     outp_0[0] = vout0_0;
     outp_0[1] = vout0_1;
+    outp_0[2] = vout0_2;
+    outp_0[3] = vout0_3;
 
     outp_1[0] = vout1_0;
     outp_1[1] = vout1_1;
-
-    outp_2[0] = vout2_0;
-    outp_2[1] = vout2_1;
-
-    outp_3[0] = vout3_0;
-    outp_3[1] = vout3_1;
-
+    outp_1[2] = vout1_2;
+    outp_1[3] = vout1_3;
 }
 
 static void
@@ -475,16 +460,16 @@ matmul_neon(float * __restrict out,
             unsigned int pitch_f32)
 {
     /* C=4x4x(2simd) register */
-    unsigned int block_size_i = 4;
-    unsigned int block_size_j = 8;
+    unsigned int block_size_i = 32;
+    unsigned int block_size_j = 16;
     unsigned int block_size_k = 64;
     int i00;
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(dynamic)
     for (i00=0; i00<n; i00+=block_size_i) {
         for (int j0=0; j0<n; j0+=block_size_j) {
             for (int k0=0; k0<n; k0+=block_size_k) {
-                for (int bi=0; bi<block_size_i; bi+=4) {
+                for (int bi=0; bi<block_size_i; bi+=2) {
                     neon_(i00, j0, k0, bi, out, inL, inR, n, pitch_f32);
                 }
             }
