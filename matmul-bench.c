@@ -353,7 +353,6 @@ neon_(unsigned int i00,
     __builtin_prefetch(outp1+n*1);
     __builtin_prefetch(outp1+n*2);
 
-    /* 4x4x(2simd) reg */
     float32x4_t vout0_0;
     float32x4_t vout0_1;
     float32x4_t vout0_2;
@@ -386,6 +385,7 @@ neon_(unsigned int i00,
     }
 
     const float *inRp1 = (float*)&inR[k0*pitch_f32+j0];
+    const float *inRp1_pld = (float*)&inR[(k0+5)*pitch_f32+j0];
 
     const float32x4_t *inRp;
 
@@ -438,7 +438,34 @@ neon_(unsigned int i00,
     float32x4_t lik0, lik1;
 
     for (int bk=0; bk<64; bk++) {
-        NEON_K(0);
+        //NEON_K(0);
+        __asm__ __volatile__ ("vldmia %[inRp1], {q8-q11}\n\t"
+                              "pld [%[inRp1_pld]]\n\t"
+                              "vld1.32 {d24[], d25[]}, [%[inL00_0]]!\n\t"
+                              "vld1.32 {d26[], d27[]}, [%[inL00_1]]!\n\t"
+                              "vmla.f32 %q[vout0_0], q8, q12\n\t"
+                              "vmla.f32 %q[vout0_1], q9, q12\n\t"
+                              "vmla.f32 %q[vout0_2], q10, q12\n\t"
+                              "vmla.f32 %q[vout0_3], q11, q12\n\t"
+                              "vmla.f32 %q[vout1_0], q8, q13\n\t"
+                              "vmla.f32 %q[vout1_1], q9, q13\n\t"
+                              "vmla.f32 %q[vout1_2], q10, q13\n\t"
+                              "vmla.f32 %q[vout1_3], q11, q13\n\t"
+                              :[inL00_0]"+r"(inL00_0), [inL00_1]"+r"(inL00_1),
+                               [vout0_0]"+w"(vout0_0),
+                               [vout0_1]"+w"(vout0_1),
+                               [vout0_2]"+w"(vout0_2),
+                               [vout0_3]"+w"(vout0_3),
+                               [vout1_0]"+w"(vout1_0),
+                               [vout1_1]"+w"(vout1_1),
+                               [vout1_2]"+w"(vout1_2),
+                               [vout1_3]"+w"(vout1_3)
+                              :[inRp1]"r"(inRp1),
+                               [inRp1_pld]"r"(inRp1_pld)
+                              :"q8", "q9", "q10", "q11", "q12", "q13");
+
+        inRp1 += pitch_f32;
+        inRp1_pld += pitch_f32;
     }
 
     outp_0[0] = vout0_0;
