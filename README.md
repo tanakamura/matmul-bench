@@ -10,10 +10,10 @@
   - -std=gnu99 -Wall -O2 -fopenmp -ffast-math -mtune=native -save-temps -march=native
   - 56.1%
  * Zynq 7020 (667MHz, Cortex-A9, 2core, Linux)
-  - NEON 版 512x512 1.25446[GFLOPS]
+  - NEON 版 512x512 sec=0.16318, 1.53205[GFLOPS]
   - 理論値 2 x 2 x 2 x 0.667 = 5.336[GFLOPS]
   - -std=gnu99 -Wall -O2 -ffast-math -mfloat-abi=hard -fopenmp -mfpu=neon -mtune=cortex-a9 -mcpu=cortex-a9 -falign-loops=16 
-  - 23.5%
+  - 28.7%
  * Celeron N2807 (1.58GHz, Silvermont, 2core, Linux)
   - SSE 版 512x512 7.76393[GFLOPS]
   - 理論値 2 x 4 x 2 x 1.58 = 25.28[GFLOPS]
