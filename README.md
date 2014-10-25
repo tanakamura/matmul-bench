@@ -10,7 +10,7 @@
   - -std=gnu99 -Wall -O2 -fopenmp -ffast-math -mtune=native -save-temps -march=native
   - 56.1%
  * Zynq 7020 (667MHz, Cortex-A9, 2core, Linux)
-  - NEON 版 512x512 sec=0.12280,  2.32446[GFLOPS]
+  - NEON 版 512x512 2.32446[GFLOPS]
   - 理論値 2 x 2 x 2 x 0.667 = 5.336[GFLOPS]
   - -std=gnu99 -Wall -O2 -ffast-math -mfloat-abi=hard -fopenmp -mfpu=neon -mtune=cortex-a9 -mcpu=cortex-a9 -falign-loops=16 
   - 43.6%
