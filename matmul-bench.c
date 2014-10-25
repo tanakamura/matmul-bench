@@ -98,12 +98,10 @@ matmul_bench_init(void)
 
     if ((ecx & (1<<12))) {
         matmulbench_init_fma(ret, &va);
-        ret->feature_bits |= MATMULBENCH_FEATURE_AVX;
+        ret->feature_bits |= MATMULBENCH_FEATURE_FMA;
     }
 #endif
 
-    
-    
     return ret;
 }
 
