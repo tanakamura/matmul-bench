@@ -70,9 +70,11 @@ ARM_LINUX_OBJS=$(patsubst %.c,obj/arm-linux/%.o,${ARM_SRCS})
 ARM_ANDROID_OBJS=$(patsubst %.c,obj/arm-android/%.o,${ARM_SRCS})
 
 ALL_OBJS=$(X86_OBJS) $(ARM_LINUX_OBJS) $(ARM_ANDROID_OBJS)
-ALL_ASMS=$(ALL_OBJS:.o=.s)
+ALL_SRCS=$(X86_SRCS) $(ARM_SRCS)
+
+ALL_ASMS=$(ALL_SRCS:.c=.s)
+ALL_PPS=$(ALL_SRCS:.c=.i)
 ALL_DEPS=$(ALL_OBJS:.o=.d)
-ALL_PPS=$(ALL_OBJS:.o=.i)
 
 
 matmul-bench-x86_64-linux: $(X86_OBJS)
