@@ -524,7 +524,7 @@ neon_(unsigned int i00,
                            [vout1_2]"+w"(vout1_2),
                            [vout1_3]"+w"(vout1_3),
                            [inRp1]"+r"(inRp1)
-                          :[pitch_f32]"r"(pitch_f32*4), [inRp_end]"r"(inRp1 + 64*pitch_f32), [pld_offset]"r"(pitch_f32*4*4)
+                          :[pitch_f32]"r"(pitch_f32*4), [inRp_end]"r"(inRp1 + 128*pitch_f32), [pld_offset]"r"(pitch_f32*4*4)
                           :"d0", "d1", "d2", "d3", "q8", "q9", "q10", "q11");
 
 
@@ -549,7 +549,7 @@ matmul_neon(float * __restrict out,
     /* C=4(x2simd)x2 register */
     unsigned int block_size_i = 32;
     unsigned int block_size_j = 16;
-    unsigned int block_size_k = 64;
+    unsigned int block_size_k = 128;
     int i00;
 
 #pragma omp parallel for schedule(dynamic)
