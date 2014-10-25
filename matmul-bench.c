@@ -2,6 +2,8 @@
 #include <stdlib.h>
 
 #include "matmul-bench.h"
+#include "matmul-bench-common.h"
+#include "npr/varray.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -72,6 +74,34 @@ matmul_bench_init(void)
     InitOnceExecuteOnce(&g_InitOnce, init1,
                         NULL, NULL);
 #endif
+
+
+    ret->feature_bits = 0;
+
+    struct npr_varray va;
+
+    npr_varray_init(&va, 16, sizeof(struct MatmulBenchTest));
+
+    matmulbench_init_simple_c(ret, &va);
+    matmulbench_init_opt_c(ret, &va);
+
+#ifdef __x86_64__
+    matmulbench_init_sse_c(&va);
+    ret->feature_bits |= MATMULBENCH_FEATURE_SSE;
+
+    unsigned int eax, ebx, ecx, edx;
+    __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+    if ((ecx & 0x18000000) == 0x18000000) {
+        matmulbench_init_avx(ret, &va);
+        ret->feature_bits |= MATMULBENCH_FEATURE_AVX;
+    }
+
+    if ((ecx & (1<<12))) {
+        matmulbench_init_fma(ret, &va);
+        ret->feature_bits |= MATMULBENCH_FEATURE_AVX;
+    }
+#endif
+
     
     
     return ret;

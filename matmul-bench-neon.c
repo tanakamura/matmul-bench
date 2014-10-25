@@ -1,3 +1,5 @@
+#if 0
+
 #ifdef __ARM_NEON__
 
 static NOINLINE void
@@ -135,3 +137,5 @@ matmul_neon(float * __restrict out,
 #endif
 
 
+
+#endif

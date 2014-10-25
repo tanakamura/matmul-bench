@@ -5,7 +5,7 @@
 enum run_type {
     RUN_ALL,
     RUN_SIZE1,
-    DISPLAY_LIST,
+    DISPLAY_TEST_INFO,
 };
 
 static void
@@ -27,7 +27,7 @@ main(int argc, char **argv)
         if (argv[ai][0] == '-') {
             switch (argv[ai][1]) {
             case 'l':
-                run_type = DISPLAY_LIST;
+                run_type = DISPLAY_TEST_INFO;
                 break;
 
             case 'n':
@@ -57,7 +57,9 @@ main(int argc, char **argv)
     }
 
     struct MatmulBench *b = matmul_bench_init();
-
+    if (run_type == DISPLAY_TEST_INFO) {
+        printf("%x\n", b->feature_bits);
+    }
 
     return 0;
 

@@ -1,6 +1,7 @@
 #ifndef MATMUL_BENCH_COMMON_H
 #define MATMUL_BENCH_COMMON_H
 
+#include "matmul-bench.h"
 #include "npr/varray.h"
 
 struct MatmulBench;
@@ -51,11 +52,11 @@ struct MatmulBench;
 
 double matmul_bench_sec(void);
 
-void matmulbench_init_simple_c(struct npr_varray *test_set);
-void matmulbench_init_opt_c(struct npr_varray *test_set);
-void matmulbench_init_sse(struct npr_varray *test_set);
-void matmulbench_init_avx(struct npr_varray *test_set);
-void matmulbench_init_fma(struct npr_varray *test_set);
-void matmulbench_init_neon(struct npr_varray *test_set);
+void matmulbench_init_simple_c(struct MatmulBench *b, struct npr_varray *test_set);
+void matmulbench_init_opt_c(struct MatmulBench *b, struct npr_varray *test_set);
+void matmulbench_init_sse(struct MatmulBench *b, struct npr_varray *test_set);
+void matmulbench_init_avx(struct MatmulBench *b, struct npr_varray *test_set);
+void matmulbench_init_fma(struct MatmulBench *b, struct npr_varray *test_set);
+void matmulbench_init_neon(struct MatmulBench *b, struct npr_varray *test_set);
 
 #endif

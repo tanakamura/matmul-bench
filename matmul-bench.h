@@ -51,9 +51,16 @@ struct MatmulBenchTest {
     unsigned long size_step;
 };
 
+#define MATMULBENCH_FEATURE_SSE (1<<0)
+#define MATMULBENCH_FEATURE_AVX (1<<1)
+#define MATMULBENCH_FEATURE_FMA (1<<2)
+#define MATMULBENCH_FEATURE_NEON (1<<3)
+
 struct MatmulBench {
     int num_test;
     struct MatmulBenchTest *t;
+
+    int feature_bits;
 
     const char *info;
 };

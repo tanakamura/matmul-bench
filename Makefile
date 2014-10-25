@@ -58,15 +58,17 @@ NPR_SRCS=varray.c mempool-c.c
 LIBBENCH_SRCS=matmul-bench-simple-c.c matmul-bench.c $(NPR_SRCS)
 BENCH_SRCS=matmul-bench-main.c  $(LIBBENCH_SRCS)
 
-X86_OBJS=$(patsubst %.c,obj/x86_64/%.o,${BENCH_SRCS})
-ARM_LINUX_OBJS=$(patsubst %.c,obj/arm-linux/%.o,${BENCH_SRCS})
-ARM_ANDROID_OBJS=$(patsubst %.c,obj/arm-android/%.o,${BENCH_SRCS})
+X86_SRCS=${BENCH_SRCS} matmul-bench-sse.c matmul-bench-avx.c matmul-bench-fma.c
+X86_OBJS=$(patsubst %.c,obj/x86_64/%.o,${X86_SRCS})
+
+ARM_SRCS=${BENCH_SRCS} matmul-bench-neon.c
+ARM_LINUX_OBJS=$(patsubst %.c,obj/arm-linux/%.o,${ARM_SRCS})
+ARM_ANDROID_OBJS=$(patsubst %.c,obj/arm-android/%.o,${ARM_SRCS})
 
 ALL_OBJS=$(X86_OBJS) $(ARM_LINUX_OBJS) $(ARM_ANDROID_OBJS)
 ALL_ASMS=$(ALL_OBJS:.o=.s)
 ALL_DEPS=$(ALL_OBJS:.o=.d)
 ALL_PPS=$(ALL_OBJS:.o=.i)
-
 
 
 matmul-bench-x86_64-linux: $(X86_OBJS)
@@ -75,6 +77,14 @@ matmul-bench-x86_64-linux: $(X86_OBJS)
 matmul-bench-arm-linux: $(ARM_LINUX_OBJS)
 	${ARM_LINUX_GCC} ${CFLAGS_COMMON} -o $@ $^
 
+
+obj/x86_64/%.o: npr/%.c
+	${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -c -o $@ $<
+
+obj/x86_64/matmul-bench-avx.o: matmul-bench-avx.c
+	${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -mavx -c -o $@ $<
+obj/x86_64/matmul-bench-fma.o: matmul-bench-fma.c
+	${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -mfma -c -o $@ $<
 
 obj/x86_64/%.o: npr/%.c
 	${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -c -o $@ $<

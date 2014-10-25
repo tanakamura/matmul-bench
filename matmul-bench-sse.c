@@ -1,4 +1,7 @@
 
+
+#if 0
+
 #ifdef __SSE__
 static void
 matmul_block_outer_sse_omp(float * __restrict out,
@@ -77,4 +80,7 @@ matmul_block_outer_sse_omp(float * __restrict out,
         }
     }
 }
+#endif
+
+
 #endif
