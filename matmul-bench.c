@@ -480,7 +480,7 @@ matmul_neon(float * __restrict out,
             unsigned int n,
             unsigned int pitch_f32)
 {
-    /* C=4x4x(2simd) register */
+    /* C=4(x2simd)x2 register */
     unsigned int block_size_i = 32;
     unsigned int block_size_j = 16;
     unsigned int block_size_k = 64;
