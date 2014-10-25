@@ -1,9 +1,17 @@
 #include <time.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 
 #include "matmul-bench.h"
 #include "matmul-bench-common.h"
 #include "npr/varray.h"
+
+#ifdef ARCH_X86
+#include <cpuid.h>
+#endif
+
 
 #ifdef _WIN32
 #include <windows.h>
@@ -78,28 +86,83 @@ matmul_bench_init(void)
 
     ret->feature_bits = 0;
 
-    struct npr_varray va;
+    struct npr_varray test_set;
 
-    npr_varray_init(&va, 16, sizeof(struct MatmulBenchTest));
+    npr_varray_init(&test_set, 16, sizeof(struct MatmulBenchTest));
 
-    matmulbench_init_simple_c(ret, &va);
-    matmulbench_init_opt_c(ret, &va);
+    matmulbench_init_simple_c(ret, &test_set);
+    matmulbench_init_opt_c(ret, &test_set);
 
-#ifdef __x86_64__
-    matmulbench_init_sse_c(&va);
+#ifdef ARCH_X86
+    matmulbench_init_sse(ret, &test_set);
     ret->feature_bits |= MATMULBENCH_FEATURE_SSE;
 
-    unsigned int eax, ebx, ecx, edx;
+    unsigned int eax, ebx, ecx=0, edx;
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
     if ((ecx & 0x18000000) == 0x18000000) {
-        matmulbench_init_avx(ret, &va);
+        matmulbench_init_avx(ret, &test_set);
         ret->feature_bits |= MATMULBENCH_FEATURE_AVX;
     }
 
     if ((ecx & (1<<12))) {
-        matmulbench_init_fma(ret, &va);
+        matmulbench_init_fma(ret, &test_set);
         ret->feature_bits |= MATMULBENCH_FEATURE_FMA;
     }
+#endif
+
+
+
+
+#ifdef __arm__
+
+    {
+        FILE *fp = fopen("/proc/cpuinfo", "rb");
+
+        if (fp) {
+            while (1) {
+                char line[1024];
+                if (fgets(line, 1024, fp) == NULL) {
+                    break;
+                }
+                if (strncmp(line, "Features", 8) == 0) {
+                    int cur = 0;
+                    size_t len = strlen(line);
+                    for (cur=0; cur<len; cur++) {
+                        if (line[cur]==':') {
+                            cur++;
+                            break;
+                        }
+                    }
+
+
+                    while (cur < len) {
+                        if (strncmp(line+cur, "vfpv4", 5) == 0) {
+                            ret->feature_bits |= MATMULBENCH_FEATURE_VFPV4;
+                        }
+                        if (strncmp(line+cur, "neon", 4) == 0) {
+                            ret->feature_bits |= MATMULBENCH_FEATURE_NEON;
+                        }
+                        while (cur<len) {
+                            if (line[cur] == ' ') {
+                                cur++;
+                                break;
+                            }
+                            cur++;
+                        }
+                    }
+                }
+            }
+            fclose(fp);
+        }
+    }
+
+    if (ret->feature_bits & MATMULBENCH_FEATURE_NEON) {
+        matmulbench_init_neon(ret, &test_set);
+    }
+    if (ret->feature_bits & MATMULBENCH_FEATURE_VFPV4) {
+        matmulbench_init_vfpv4(ret, &test_set);
+    }
+
 #endif
 
     return ret;

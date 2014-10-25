@@ -3,7 +3,6 @@
     _mm256_insertf128_ps(_mm256_castps128_ps256(lo), (hi), 0x1)
 #endif
 
-
 static NOINLINE void
 CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
                         unsigned long j0,
@@ -134,10 +133,12 @@ CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
 
 static void
 AVX_FUNC_NAME(float * __restrict out,
-              const float* __restrict inL,
-              const float* __restrict inR,
-              unsigned long n,
-              unsigned long pitch_f32)
+              const float * __restrict inL,
+              const float * __restrict inR,
+              const float * __restrict inL_plus1line,
+              const float * __restrict inR_plus1line,
+              unsigned int n,
+              unsigned int pitch_byte)
 {
     unsigned long block_size_i = 48;
     unsigned long block_size_j = 32;
@@ -151,7 +152,7 @@ AVX_FUNC_NAME(float * __restrict out,
             for (long k0=0; k0<n; k0+=block_size_k) {
                 for (long bi=0; bi<block_size_i; bi+=3) {
                     CONCAT(AVX_FUNC_NAME,_)(i00,j0,k0,bi,
-                                            out, inL, inR, n, pitch_f32);
+                                            out, inL_plus1line, inR_plus1line, n, pitch_byte/4);
                 }
             }
         }

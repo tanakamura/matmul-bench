@@ -1,6 +1,15 @@
 #ifndef MATMUL_BENCH_COMMON_H
 #define MATMUL_BENCH_COMMON_H
 
+#if defined __x86_64__  || defined __x86__
+#define ARCH_X86
+#endif
+
+#if defined __GNUC__ || defined __clang__
+#define HAVE_VEC_EXT
+#endif
+
+
 #include "matmul-bench.h"
 #include "npr/varray.h"
 
@@ -16,7 +25,7 @@ struct MatmulBench;
 #define NOINLINE __declspec(noinline)
 #endif
 
-#ifdef __SSE__
+#ifdef ARCH_X86
 #ifdef _WIN32
 #include <intrin.h>
 #else
@@ -58,5 +67,8 @@ void matmulbench_init_sse(struct MatmulBench *b, struct npr_varray *test_set);
 void matmulbench_init_avx(struct MatmulBench *b, struct npr_varray *test_set);
 void matmulbench_init_fma(struct MatmulBench *b, struct npr_varray *test_set);
 void matmulbench_init_neon(struct MatmulBench *b, struct npr_varray *test_set);
+void matmulbench_init_vfpv4(struct MatmulBench *b, struct npr_varray *test_set);
+
+#define MATMULBENCH_TEST_INITIALIZER(name,run,size_step) {name, run, size_step}
 
 #endif

@@ -1,11 +1,17 @@
+#include "matmul-bench-common.h"
+
+#ifdef HAVE_VEC_EXT
 typedef float v4sf __attribute__((vector_size (16)));
 typedef float v8sf __attribute__((vector_size (32)));
 
 static void
-gcc_vec4(float *__restrict out,
-         const float * __restrict inL,
-         const float * __restrict inR,
-         int n)
+gccvec4_run(float * __restrict out,
+            const float * __restrict inL,
+            const float * __restrict inR,
+            const float * __restrict inL_plus1line,
+            const float * __restrict inR_plus1line,
+            unsigned int n,
+            unsigned int pitch_byte)
 {
     int i;
 
@@ -27,15 +33,16 @@ gcc_vec4(float *__restrict out,
             }
         }
     }
-
-    return;
 }
 
 static void
-gcc_vec8(float *__restrict out,
-         const float * __restrict inL,
-         const float * __restrict inR,
-         int n)
+gccvec8_run(float * __restrict out,
+            const float * __restrict inL,
+            const float * __restrict inR,
+            const float * __restrict inL_plus1line,
+            const float * __restrict inR_plus1line,
+            unsigned int n,
+            unsigned int pitch_byte)
 {
     int i;
 
@@ -58,15 +65,17 @@ gcc_vec8(float *__restrict out,
             }
         }
     }
-
-    return;
 }
+#endif
 
 static void
-matmul_block_omp(float * __restrict out,
-                 const float* __restrict inL,
-                 const float* __restrict inR,
-                 unsigned int n)
+block_run(float * __restrict out,
+          const float * __restrict inL,
+          const float * __restrict inR,
+          const float * __restrict inL_plus1line,
+          const float * __restrict inR_plus1line,
+          unsigned int n,
+          unsigned int pitch_byte)
 {
     unsigned int block_size = 32;
     int i0, i;
@@ -77,7 +86,6 @@ matmul_block_omp(float * __restrict out,
             out[i*n+j] = 0;
         }
     }
-
 
 
 #pragma omp parallel for
@@ -106,10 +114,13 @@ matmul_block_omp(float * __restrict out,
 
 
 static void
-matmul_block_omp_unroll(float * __restrict out,
-                        const float* __restrict inL,
-                        const float* __restrict inR,
-                        unsigned int n)
+block_unroll_run(float * __restrict out,
+                 const float * __restrict inL,
+                 const float * __restrict inR,
+                 const float * __restrict inL_plus1line,
+                 const float * __restrict inR_plus1line,
+                 unsigned int n,
+                 unsigned int pitch_byte)
 {
     unsigned int block_size = 16;
     int i0;
@@ -165,4 +176,25 @@ matmul_block_omp_unroll(float * __restrict out,
             }
         }
     }
+}
+
+
+static const struct MatmulBenchTest block = MATMULBENCH_TEST_INITIALIZER("block", block_run, 64);
+static const struct MatmulBenchTest block_unroll = MATMULBENCH_TEST_INITIALIZER("block_unroll", block_unroll_run, 64);
+
+#ifdef HAVE_VEC_EXT
+static const struct MatmulBenchTest gccvec4 = MATMULBENCH_TEST_INITIALIZER("simple_omp", gccvec4_run, 64);
+static const struct MatmulBenchTest gccvec8 = MATMULBENCH_TEST_INITIALIZER("simple", gccvec8_run, 64);
+#endif
+
+void
+matmulbench_init_opt_c(struct MatmulBench *b, struct npr_varray *test_set)
+{
+    VA_PUSH(struct MatmulBenchTest, test_set, block);
+    VA_PUSH(struct MatmulBenchTest, test_set, block_unroll);
+
+#ifdef HAVE_VEC_EXT
+    VA_PUSH(struct MatmulBenchTest, test_set, gccvec4);
+    VA_PUSH(struct MatmulBenchTest, test_set, gccvec8);
+#endif
 }

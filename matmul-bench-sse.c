@@ -1,13 +1,14 @@
-
-
-#if 0
+#include "matmul-bench-common.h"
 
 #ifdef __SSE__
 static void
-matmul_block_outer_sse_omp(float * __restrict out,
-                           const float* __restrict inL,
-                           const float* __restrict inR,
-                           unsigned int n)
+sse_run(float * __restrict out,
+        const float * __restrict inL,
+        const float * __restrict inR,
+        const float * __restrict inL_plus1line,
+        const float * __restrict inR_plus1line,
+        unsigned int n,
+        unsigned int pitch_byte)
 {
     unsigned int block_size = 32;
     int i0;
@@ -82,5 +83,10 @@ matmul_block_outer_sse_omp(float * __restrict out,
 }
 #endif
 
+static const struct MatmulBenchTest sse = MATMULBENCH_TEST_INITIALIZER("sse", sse_run, 64);
 
-#endif
+void
+matmulbench_init_sse(struct MatmulBench *b, struct npr_varray *test_set)
+{
+    VA_PUSH(struct MatmulBenchTest, test_set, sse);
+}

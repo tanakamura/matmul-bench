@@ -1,6 +1,4 @@
-#if 0
-
-#ifdef __ARM_NEON__
+#include "matmul-bench-common.h"
 
 static NOINLINE void
 neon_(unsigned int i00,
@@ -145,11 +143,13 @@ neon_(unsigned int i00,
 }
 
 static void
-matmul_neon(float * __restrict out,
-            const float* __restrict inL,
-            const float* __restrict inR,
-            unsigned int n,
-            unsigned int pitch_f32)
+neon_run(float * __restrict out,
+         const float * __restrict inL,
+         const float * __restrict inR,
+         const float * __restrict inL_plus1line,
+         const float * __restrict inR_plus1line,
+         unsigned int n,
+         unsigned int pitch_byte)
 {
     /* C=4x4x(2simd) register */
     unsigned int block_size_i = 32;
@@ -162,14 +162,17 @@ matmul_neon(float * __restrict out,
         for (int j0=0; j0<n; j0+=block_size_j) {
             for (int k0=0; k0<n; k0+=block_size_k) {
                 for (int bi=0; bi<block_size_i; bi+=2) {
-                    neon_(i00, j0, k0, bi, out, inL, inR, n, pitch_f32);
+                    neon_(i00, j0, k0, bi, out, inL_plus1line, inR_plus1line, n, pitch_byte/4);
                 }
             }
         }
     }
 }
-#endif
 
+static const struct MatmulBenchTest neon = MATMULBENCH_TEST_INITIALIZER("neon", neon_run, 128);
 
-
-#endif
+void
+matmulbench_init_neon(struct MatmulBench *b, struct npr_varray *test_set)
+{
+    VA_PUSH(struct MatmulBenchTest, test_set, neon);
+}
