@@ -56,4 +56,9 @@ main(int argc, char **argv)
         exit(0);
     }
 
+    struct MatmulBench *b = matmul_bench_init();
+
+
+    return 0;
+
 }

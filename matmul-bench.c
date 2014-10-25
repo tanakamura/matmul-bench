@@ -1,8 +1,87 @@
+#include <time.h>
+#include <stdlib.h>
+
+#include "matmul-bench.h"
+
+#ifdef _WIN32
+#include <windows.h>
+
+static LARGE_INTEGER freq;
+static INIT_ONCE g_InitOnce = INIT_ONCE_STATIC_INIT;
+
+static void
+init1(PINIT_ONCE InitOnce,
+      PVOID Parameter
+      PVOID *lpContext)
+{
+    QueryPerformanceFrequency(&freq);    
+}
+
+double
+matmul_bench_sec(void)
+{
+    LARGE_INTEGER c;
+    QueryPerformanceCounter(&c);
+
+    return c.QuadPart/ (double)freq.QuadPart;
+}
+
+double
+drand(void)
+{
+    unsigned int v;
+    rand_s(&v);
+
+    return v / (double)UINT_MAX;
+}
+
+#define srand(v)
+
+
+
+
+#else
+
+
+double
+matmul_bench_sec(void)
+{
+    struct timespec ts;
+
+#ifdef CLOCK_MONOTONIC_RAW
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+#else
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+#endif
+
+    return (ts.tv_sec) + (ts.tv_nsec / (1000.0*1000.0*1000.0));
+}
+
+
+#define drand drand48
+#define srand srand48
+
+#endif
+
+struct MatmulBench *
+matmul_bench_init(void)
+{
+    struct MatmulBench *ret = malloc(sizeof(struct MatmulBench));
+
+#ifdef _WIN32
+    InitOnceExecuteOnce(&g_InitOnce, init1,
+                        NULL, NULL);
+#endif
+    
+    
+    return ret;
+}
+
+
 
 
 #if 0
 #include <stdio.h>
-#include <time.h>
 #include <stdlib.h>
 #include <math.h>
 #include <malloc.h>
@@ -25,70 +104,6 @@ static float *out_block_outer_neon_omp;
 static float *out_neon;
 static float *out_gcc_vec4;
 static float *out_gcc_vec8;
-
-#define STRINGIZE_(a) #a
-#define STRINGIZE(a) STRINGIZE_(a)
-
-#define CONCAT_(a,b) a ## b
-#define CONCAT(a,b) CONCAT_(a,b)
-
-#ifdef _WIN32
-#include <windows.h>
-
-LARGE_INTEGER freq;
-
-void
-sec_init()
-{
-    QueryPerformanceFrequency(&freq);
-}
-
-double
-sec(void)
-{
-    LARGE_INTEGER c;
-    QueryPerformanceCounter(&c);
-
-    return c.QuadPart/ (double)freq.QuadPart;
-
-}
-
-double
-drand(void)
-{
-    unsigned int v;
-    rand_s(&v);
-
-    return v / (double)UINT_MAX;
-}
-
-#define srand(v)
-
-
-
-#else
-#define sec_init()
-
-double
-sec(void)
-{
-    struct timespec ts;
-
-#ifdef CLOCK_MONOTONIC_RAW
-    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-#else
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-#endif
-
-    return (ts.tv_sec) + (ts.tv_nsec / (1000.0*1000.0*1000.0));
-}
-
-#define drand drand48
-#define srand srand48
-
-#endif
-
-
 
 static void
 dump_mat(int n, float *data)

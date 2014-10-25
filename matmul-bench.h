@@ -3,7 +3,18 @@
 
 #ifdef _WIN32
 #include <windows.h>
+
+#ifdef MATMULBENCH_BUILD_LIB
+#define MATMULBENCH_EXPORT __declspec(dllexport)
+#else
+#define MATMULBENCH_EXPORT __declspec(dllimport)
 #endif
+
+#else
+#define MATMULBENCH_EXPORT __attribute__((visivility("default")))
+#endif
+
+
 
 struct MatmulBenchTest;
 struct MatmulBenchRunTestConfig;
@@ -45,9 +56,6 @@ struct MatmulBench {
     struct MatmulBenchTest *t;
 
     const char *info;
-#ifdef _WIN32
-    LARGE_INTEGER freq;
-#endif
 };
 
 struct MatmulBenchResult;

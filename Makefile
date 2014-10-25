@@ -27,7 +27,7 @@
 ANDROID_TOOLCHAIN=${HOME}/a/android-ndk-r10c/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin
 ANDROID_PLATFORM=${HOME}/a/android-ndk-r10c/platforms/android-21/arch-arm/usr
 
-CFLAGS_COMMON=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -MD
+CFLAGS_COMMON=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -MD -fvisibility=hidden -I$(PWD)
 
 ifdef SAVE_TEMPS
 	CFLAGS_COMMON+=-save-temps
@@ -54,11 +54,13 @@ endif
 
 all: ${ALL_TARGET}
 
-BENCH_SRCS=matmul-bench-simple-c.c
+NPR_SRCS=varray.c mempool-c.c
+LIBBENCH_SRCS=matmul-bench-simple-c.c matmul-bench.c $(NPR_SRCS)
+BENCH_SRCS=matmul-bench-main.c  $(LIBBENCH_SRCS)
 
-X86_OBJS=obj/x86_64/matmul-bench-main.o $(patsubst %.c,obj/x86_64/%.o,${BENCH_SRCS})
-ARM_LINUX_OBJS=obj/arm-linux/matmul-bench-main.o $(patsubst %.c,obj/arm-linux/%.o,${BENCH_SRCS})
-ARM_ANDROID_OBJS=obj/arm-android/matmul-bench-main.o $(patsubst %.c,obj/arm-android/%.o,${BENCH_SRCS})
+X86_OBJS=$(patsubst %.c,obj/x86_64/%.o,${BENCH_SRCS})
+ARM_LINUX_OBJS=$(patsubst %.c,obj/arm-linux/%.o,${BENCH_SRCS})
+ARM_ANDROID_OBJS=$(patsubst %.c,obj/arm-android/%.o,${BENCH_SRCS})
 
 ALL_OBJS=$(X86_OBJS) $(ARM_LINUX_OBJS) $(ARM_ANDROID_OBJS)
 ALL_ASMS=$(ALL_OBJS:.o=.s)
@@ -67,11 +69,18 @@ ALL_PPS=$(ALL_OBJS:.o=.i)
 
 
 
-matmul-bench-x86_64-linux: 
+matmul-bench-x86_64-linux: $(X86_OBJS)
 	${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -o $@ $^
 
-matmul-bench-arm-linux: obj/arm-linux/matmul-bench-main.o $(patsubst %.c,obj/arm-linux/%.o,${BENCH_SRCS})
+matmul-bench-arm-linux: $(ARM_LINUX_OBJS)
 	${ARM_LINUX_GCC} ${CFLAGS_COMMON} -o $@ $^
+
+
+obj/x86_64/%.o: npr/%.c
+	${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -c -o $@ $<
+
+obj/arm-linux/%.o: npr/%.c
+	${ARM_LINUX_GCC} ${CFLAGS_COMMON} -c -o $@ $<
 
 obj/x86_64/%.o: %.c
 	${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -c -o $@ $<
