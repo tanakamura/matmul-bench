@@ -6,3 +6,11 @@ matmul-bench
 *.pdb
 *.sln
 *.suo
+*.o
+*.d
+*.i
+*.s
+*.asm
+matmul-bench-arm-linux
+matmul-bench-arm-android
+matmul-bench-x86_64-linux
