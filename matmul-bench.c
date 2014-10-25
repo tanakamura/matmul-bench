@@ -50,6 +50,8 @@ static float *out_block_outer_avx_omp;
 static float *out_x86_fma;
 static float *out_block_outer_neon_omp;
 static float *out_neon;
+static float *out_gcc_vec4;
+static float *out_gcc_vec8;
 
 #define STRINGIZE_(a) #a
 #define STRINGIZE(a) STRINGIZE_(a)
@@ -158,6 +160,70 @@ matmul_simple_outer_omp(float *__restrict out,
 
             for (int j=0; j<n; j++) {
                 out[i*n+j] += lik * inR[k*n + j];
+            }
+        }
+    }
+
+    return;
+}
+
+typedef float v4sf __attribute__((vector_size (16)));
+typedef float v8sf __attribute__((vector_size (32)));
+
+static void
+gcc_vec4(float *__restrict out,
+         const float * __restrict inL,
+         const float * __restrict inR,
+         int n)
+{
+    int i;
+
+#pragma omp parallel for
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+#pragma omp parallel for
+    for (i=0; i<n; i++) {
+        for (int k=0; k<n; k++) {
+            float lik = inL[i*n+k];
+            v4sf vlik = {lik,lik,lik,lik};
+
+            for (int j=0; j<n; j+=4) {
+                *(v4sf*)&out[i*n+j] += vlik * *(v4sf*)&inR[k*n + j];
+            }
+        }
+    }
+
+    return;
+}
+
+static void
+gcc_vec8(float *__restrict out,
+         const float * __restrict inL,
+         const float * __restrict inR,
+         int n)
+{
+    int i;
+
+#pragma omp parallel for
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+#pragma omp parallel for
+    for (i=0; i<n; i++) {
+        for (int k=0; k<n; k++) {
+            float lik = inL[i*n+k];
+            v8sf vlik = {lik,lik,lik,lik,
+                         lik,lik,lik,lik};
+
+            for (int j=0; j<n; j+=8) {
+                *(v8sf*)&out[i*n+j] += vlik * *(v8sf*)&inR[k*n + j];
             }
         }
     }
@@ -392,8 +458,8 @@ neon_(unsigned int i00,
     __asm__ __volatile__ (".p2align 4\n\t"
                           "1:\n\t"
                           "vld1.32 {d0,d1}, [%[inL00_0]]!\n\t"
-                          "pld [%[inRp1], %[pld_offset]]\n\t"
                           "vld1.32 {d2,d3}, [%[inL00_1]]!\n\t"
+                          "pld [%[inRp1], %[pld_offset]]\n\t"
                           "vldmia %[inRp1], {q8-q11}\n\t"
 
                           "add %[inRp1], %[inRp1], %[pitch_f32]\n\t"
@@ -458,7 +524,7 @@ neon_(unsigned int i00,
                            [vout1_2]"+w"(vout1_2),
                            [vout1_3]"+w"(vout1_3),
                            [inRp1]"+r"(inRp1)
-                          :[pitch_f32]"r"(pitch_f32*4), [inRp_end]"r"(inRp1 + 64*pitch_f32), [pld_offset]"r"(pitch_f32*4*5)
+                          :[pitch_f32]"r"(pitch_f32*4), [inRp_end]"r"(inRp1 + 64*pitch_f32), [pld_offset]"r"(pitch_f32*4*4)
                           :"d0", "d1", "d2", "d3", "q8", "q9", "q10", "q11");
 
 
@@ -585,7 +651,7 @@ dump_flops(const char *tag,
            int iter)
 {
     double n = ni;
-    printf("%d:%-20s: sec=%8.5f, %8.5f[GFLOPS], %8.5f[GB/s]\n",
+    printf("%d:%-20s: sec=%8.5f, %9.5f[GFLOPS], %8.5f[GB/s]\n",
            iter,
            tag,
            sec,
@@ -639,6 +705,19 @@ bench(int iter)
         dump_flops("outer_omp(gold)", n, t1-t0, out_simple, iter);
     }
 
+    t0 = sec();
+    gcc_vec4(out_gcc_vec4, in0, in1, n);
+    t1 = sec();
+
+    dump_flops("gcc_vec4", n, t1-t0, out_gcc_vec4, iter);
+
+
+    t0 = sec();
+    gcc_vec8(out_gcc_vec8, in0, in1, n);
+    t1 = sec();
+
+    dump_flops("gcc_vec8", n, t1-t0, out_gcc_vec8, iter);
+
 
     if (n > 16) {
         t0 = sec();
@@ -665,7 +744,7 @@ bench(int iter)
 
 #ifdef __AVX__
             t0 = sec();
-            matmul_block_outer_avx_omp(out_block_outer_avx_omp, in0, in1, n);
+            matmul_block_outer_avx_omp(out_block_outer_avx_omp, in0_plus1line, in1_plus1line, n, n+16);
             t1 = sec();
 
             dump_flops("avx", n, t1-t0, out_block_outer_avx_omp, iter);
@@ -675,7 +754,7 @@ bench(int iter)
 
 #ifdef __FMA__
             t0 = sec();
-            matmul_x86_fma(out_x86_fma, in0, in1, n);
+            matmul_x86_fma(out_x86_fma, in0_plus1line, in1_plus1line, n, n+16);
             t1 = sec();
 
             dump_flops("fma", n, t1-t0, out_x86_fma, iter);
@@ -733,6 +812,8 @@ main(int argc, char **argv)
     out_block_outer_neon_omp = _aligned_malloc(n*n * sizeof(float), align);
     out_x86_fma = _aligned_malloc(n*n * sizeof(float), align);
     out_neon = _aligned_malloc(n*n * sizeof(float), align);
+    out_gcc_vec4 = _aligned_malloc(n*n * sizeof(float), align);
+    out_gcc_vec8 = _aligned_malloc(n*n * sizeof(float), align);
 
     printf("n=%d\n", n);
     printf("total nelem=%d, mat size=%f[MB]\n",
@@ -767,5 +848,7 @@ main(int argc, char **argv)
     _aligned_free(out_block_outer_neon_omp);
     _aligned_free(out_neon);
     _aligned_free(out_x86_fma);
+    _aligned_free(out_gcc_vec4);
+    _aligned_free(out_gcc_vec8);
 
 }
