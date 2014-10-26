@@ -194,6 +194,7 @@ matmulbench_init_opt_c(struct MatmulBench *b, struct npr_varray *test_set)
     VA_PUSH(struct MatmulBenchTest, test_set, block_unroll);
 
 #ifdef HAVE_VEC_EXT
+    b->feature_bits |= MATMULBENCH_FEATURE_GCCVEC;
     VA_PUSH(struct MatmulBenchTest, test_set, gccvec4);
     VA_PUSH(struct MatmulBenchTest, test_set, gccvec8);
 #endif

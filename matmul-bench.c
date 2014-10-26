@@ -94,11 +94,14 @@ matmul_bench_init(void)
     matmulbench_init_opt_c(ret, &test_set);
 
 #ifdef ARCH_X86
-    matmulbench_init_sse(ret, &test_set);
-    ret->feature_bits |= MATMULBENCH_FEATURE_SSE;
-
     unsigned int eax, ebx, ecx=0, edx;
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+
+    if (edx & (1<<25)) {
+        matmulbench_init_sse(ret, &test_set);
+        ret->feature_bits |= MATMULBENCH_FEATURE_SSE;
+    }
+
     if ((ecx & 0x18000000) == 0x18000000) {
         matmulbench_init_avx(ret, &test_set);
         ret->feature_bits |= MATMULBENCH_FEATURE_AVX;
@@ -109,8 +112,6 @@ matmul_bench_init(void)
         ret->feature_bits |= MATMULBENCH_FEATURE_FMA;
     }
 #endif
-
-
 
 
 #ifdef __arm__
@@ -165,9 +166,48 @@ matmul_bench_init(void)
 
 #endif
 
+    ret->num_test = test_set.nelem;
+    ret->test_set = npr_varray_malloc_close(&test_set);
+
     return ret;
 }
 
+void
+matmul_bench_fini(struct MatmulBench *mb)
+{
+    free(mb->test_set);
+    free(mb);
+}
+
+
+struct MatmulBenchConfig *
+matmul_bench_config_init(struct MatmulBench *mb)
+{
+    int i;
+    struct MatmulBenchConfig *c = malloc(sizeof(*c));
+
+    c->iter = 3;
+    c->enable = malloc(sizeof(int) * mb->num_test);
+
+    for (i=0; i<mb->num_test; i++) {
+        c->enable[i] = 1;
+    }
+
+    c->mat_size = 0;
+    c->size_min = 1;
+    c->size_step = 1;
+    c->max_time_sec = 2.0;
+
+    return c;
+}
+
+void
+matmul_bench_config_fini(struct MatmulBench *mb,
+                         struct MatmulBenchConfig *mbc)
+{
+    free(mbc->enable);
+    free(mbc);
+}
 
 
 
