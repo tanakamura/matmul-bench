@@ -179,12 +179,12 @@ block_unroll_run(float * __restrict out,
 }
 
 
-static const struct MatmulBenchTest block = MATMULBENCH_TEST_INITIALIZER("block", block_run, 64);
-static const struct MatmulBenchTest block_unroll = MATMULBENCH_TEST_INITIALIZER("block_unroll", block_unroll_run, 64);
+static const struct MatmulBenchTest block = MATMULBENCH_TEST_INITIALIZER("block", block_run, 32);
+static const struct MatmulBenchTest block_unroll = MATMULBENCH_TEST_INITIALIZER("block_unroll", block_unroll_run, 16);
 
 #ifdef HAVE_VEC_EXT
-static const struct MatmulBenchTest gccvec4 = MATMULBENCH_TEST_INITIALIZER("simple_omp", gccvec4_run, 64);
-static const struct MatmulBenchTest gccvec8 = MATMULBENCH_TEST_INITIALIZER("simple", gccvec8_run, 64);
+static const struct MatmulBenchTest gccvec4 = MATMULBENCH_TEST_INITIALIZER("gccvec4", gccvec4_run, 4);
+static const struct MatmulBenchTest gccvec8 = MATMULBENCH_TEST_INITIALIZER("gccvec8", gccvec8_run, 8);
 #endif
 
 void

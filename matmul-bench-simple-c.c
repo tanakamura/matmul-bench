@@ -81,9 +81,9 @@ outer_run(float * __restrict out,
 }
 
 
-static const struct MatmulBenchTest simple = MATMULBENCH_TEST_INITIALIZER("simple", simple_run, 64);
-static const struct MatmulBenchTest simple_omp = MATMULBENCH_TEST_INITIALIZER("simple_omp", simple_omp_run, 64);
-static const struct MatmulBenchTest outer = MATMULBENCH_TEST_INITIALIZER("outer_omp", outer_run, 64);
+static const struct MatmulBenchTest simple = MATMULBENCH_TEST_INITIALIZER("simple", simple_run, 1);
+static const struct MatmulBenchTest simple_omp = MATMULBENCH_TEST_INITIALIZER("simple_omp", simple_omp_run, 1);
+static const struct MatmulBenchTest outer = MATMULBENCH_TEST_INITIALIZER("outer_omp", outer_run, 1);
 
 void
 matmulbench_init_simple_c(struct MatmulBench *b, struct npr_varray *test_set)

@@ -12,13 +12,14 @@ enum run_type {
 static void
 usage(void)
 {
-    puts("matmul-bench [-n size] [-i] [-t test1,test2,...] [-i iter]");
-    puts(" -i : display test info");
-    puts(" -n : matrix size (default auto)");
-    puts(" -t : set test list (default all)");
+    puts("matmul-bench [-n size] [-I] [-t test1,test2,...] [-i iter] [-m <min size>] [-s <size step>] [-T <time limit>]");
+    puts(" -I : display test info");
+    puts(" -n : matrix size (default : auto)");
+    puts(" -t : set test list (default : all)");
     puts(" -i : num iter (default 3)");
-    puts(" -m : min size (default 1)");
-    puts(" -s : size step (default 1)");
+    puts(" -m : min size (default 64)");
+    puts(" -s : size step (default 64)");
+    puts(" -T : time limit [float sec] (default 1.0)");
 }
 
 static void
@@ -44,14 +45,35 @@ main(int argc, char **argv)
     unsigned long size1 = 512;
     const char *test_list=NULL;
     int iter = 3;
-    unsigned long size_min = 1;
-    unsigned long size_step = 1;
+    unsigned long size_min = 64;
+    unsigned long size_step = 64;
+    double timeout_sec = 1.0;
 
     for (ai=1; ai<argc; ai++) {
         if (argv[ai][0] == '-') {
             switch (argv[ai][1]) {
-            case 'i':
+            case 'I':
                 run_type = DISPLAY_TEST_INFO;
+                break;
+
+            case 'i':
+                if (ai == argc-1) {
+                    usage();
+                    exit(1);
+                }
+
+                iter = atoi(argv[ai+1]);
+                ai++;
+                break;
+
+            case 'T':
+                if (ai == argc-1) {
+                    usage();
+                    exit(1);
+                }
+
+                timeout_sec = atof(argv[ai+1]);
+                ai++;
                 break;
 
             case 'n':
@@ -153,6 +175,7 @@ main(int argc, char **argv)
     config->iter = iter;
     config->size_min = size_min;
     config->size_step = size_step;
+    config->max_time_sec = timeout_sec;
 
     if (test_list) {
         int i;
