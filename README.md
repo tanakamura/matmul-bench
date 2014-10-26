@@ -22,11 +22,11 @@
   - SSE 版 512x512 11.09515[GFLOPS]
   - 理論値 4 x 4 x 2 x 1.33 = 42.56
   - 26.1%
- * Tegra4 (1.8GHz, Cortex-A15, 4core, Android) (なんか4コア使うとクロックは1.6GHzになる)
-  - NEON 版 1024x1024 sec0.09603,  20.82690[GFLOPS]
+ * Tegra4 (1.8GHz, Cortex-A15, 4core, Linux on Android) (なんか4コア使うとクロックは1.6GHzになる)
+  - NEON 版 1024x1024 sec0.09603,  21.44851[GFLOPS]
   - 理論値 4 x 4 x 2 x 1.8 = 57.6
   - -std=gnu99 -Wall -O2 -ffast-math -mfloat-abi=softfp -mfpu=neon-vfpv4 -mtune=cortex-a15 -mcpu=cortex-a15 -fopenmp
-  - 36.2%
+  - 37.2%
  * i7-4770R (3.2GHz, Haswell, 4core, 8thread, Linux, Turbo 3.9GHz あり)
   - FMA 版 1920x1920 sec=0.04714, 279.67681[GFLOPS]
   - 理論値 4 x 8 x 4 x 3.2 = 409.6
