@@ -273,18 +273,27 @@ matmul_bench_run(struct MatmulBench *b,
     }
 
     int *test_map = malloc(sizeof(int) * num_enable);
+
+    int *timeout = malloc(sizeof(int) * num_enable);
+    int *timeout_size = malloc(sizeof(int) * num_enable);
+
     int ti = 0;
     unsigned long test_size_step_lcm = 1;
 
     for (i=0; i<b->num_test; i++) {
         if (c->enable[i]) {
-            test_map[ti++] = i;
+            timeout[ti] = 0;
+            test_map[ti] = i;
+            ti++;
 
             test_size_step_lcm = lcm(test_size_step_lcm, b->test_set[i].size_step);
         }
     }
 
-    unsigned long run_size_step = c->size_step;
+    unsigned long run_size_step;
+    unsigned long run_size_min;
+
+    run_size_step = c->size_step;
 
     if (run_size_step < test_size_step_lcm) {
         run_size_step = test_size_step_lcm;
@@ -292,9 +301,68 @@ matmul_bench_run(struct MatmulBench *b,
         run_size_step = CEIL_DIV(run_size_step,test_size_step_lcm) * test_size_step_lcm;
     }     
 
-    unsigned long size_min = CEIL_DIV(c->size_min, run_size_step) * run_size_step;
+    if (c->mat_size) {
+        run_size_min = CEIL_DIV(c->mat_size, run_size_step) * run_size_step;
+    } else {
+        run_size_min = CEIL_DIV(c->size_min, run_size_step) * run_size_step;
+    }
 
-    printf("%d %d\n", (int)run_size_step, (int)size_min);
+    unsigned long cur_size = run_size_min;
+    float **out_set = malloc(sizeof(float*) * num_enable);
+
+    while (1) {
+        unsigned long n = cur_size;
+        int align = 64;
+        int all_timeout = 1;
+
+        float *in0_plus1line = _aligned_malloc((n+64)*n * sizeof(float), align);
+        float *in1_plus1line = _aligned_malloc((n+64)*n * sizeof(float), align);
+        float *in0 = _aligned_malloc(n*n * sizeof(float), align);
+        float *in1 = _aligned_malloc(n*n * sizeof(float), align);
+
+        for (int i=0; i<num_enable; i++) {
+            out_set[i] = _aligned_malloc(n*n * sizeof(float), align);
+        }
+
+        for (int i=0; i<n; i++) {
+            for (int j=0; j<n; j++) {
+                in0_plus1line[i*(n+16)+j] = in0[i*n+j] = drand()+1.0;
+                in1_plus1line[i*(n+16)+j] = in1[i*n+j] = drand()+1.0;
+            }
+        }
+
+        for (int iter_i=0; iter_i<c->iter; iter_i++) {
+            for (int ti=0; ti<num_enable; ti++) {
+                float *out = out_set[ti];
+                struct MatmulBenchTest *t = &b->test_set[test_map[ti]];
+
+                double tb = matmul_bench_sec();
+
+                t->run(out,
+                       in0, in1,
+                       in0_plus1line, in1_plus1line,
+                       n,
+                       (n+16)*4);
+
+                double te = matmul_bench_sec();
+
+                callback(t, te-tb, iter_i, n);
+            }
+        }
+
+        for (int i=0; i<num_enable; i++) {
+            free(out_set[i]);
+        }
+
+        if (all_timeout || c->mat_size) {
+            break;
+        }
+
+        cur_size += run_size_step;
+    }
+
+    free(out_set);
+    free(timeout_size);
 
     r->test_map = test_map;
 

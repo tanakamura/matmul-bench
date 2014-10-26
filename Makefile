@@ -84,7 +84,7 @@ $(PWD)/obj/arm-android/%.o: $(PWD)/%.c
 $(PWD)/obj/x86_64/matmul-bench-avx.o: $(PWD)/matmul-bench-avx.c
 	cd obj/x86_64; ${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -mavx -c -o $@ $<
 $(PWD)/obj/x86_64/matmul-bench-fma.o: $(PWD)/matmul-bench-fma.c
-	cd obj/x86_64; ${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -mfma -c -o $@ $<
+	cd obj/x86_64; ${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -march=native -mtune=native -mfma -c -o $@ $<
 
 $(PWD)/obj/arm-linux/matmul-bench-neon.o: $(PWD)/matmul-bench-neon.c
 	cd obj/arm-linux; ${ARM_LINUX_GCC} ${CFLAGS_COMMON} -mfloat-abi=hard -mfpu=neon -c -o $@ $<

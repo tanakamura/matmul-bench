@@ -40,6 +40,7 @@ struct MatmulBench;
 #ifdef _WIN32
 
 #else
+#include <malloc.h>
 #define _aligned_malloc(sz,a) memalign(a,sz)
 #define _aligned_free(p) free(p)
 #endif
