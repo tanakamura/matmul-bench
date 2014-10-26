@@ -372,6 +372,11 @@ matmul_bench_run(struct MatmulBench *b,
             free(out_set[i]);
         }
 
+        free(in0);
+        free(in1);
+        free(in0_plus1line);
+        free(in1_plus1line);
+
         if (all_timeout || c->mat_size) {
             break;
         }
@@ -381,6 +386,7 @@ matmul_bench_run(struct MatmulBench *b,
 
     free(out_set);
     free(timeout_size);
+    free(timeout);
 
     r->test_map = test_map;
 

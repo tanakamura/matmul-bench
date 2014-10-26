@@ -1,7 +1,7 @@
 ANDROID_TOOLCHAIN=${HOME}/a/android-ndk-r10c/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin
 ANDROID_PLATFORM=${HOME}/a/android-ndk-r10c/platforms/android-21/arch-arm/usr
 
-CFLAGS_COMMON=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -fPIC -I$(PWD)
+CFLAGS_COMMON=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -fPIC -g -I$(PWD)
 
 ifdef SAVE_TEMPS
 	CFLAGS_COMMON+=-save-temps
