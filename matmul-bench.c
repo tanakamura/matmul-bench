@@ -225,19 +225,88 @@ matmul_bench_config_enable_test(struct MatmulBench *mb,
     return -1;
 }
 
+static unsigned long
+gcd(unsigned long m, unsigned long n)
+{
+    if (m < n) {
+        unsigned long t;
+        t = n;
+        n = m;
+        m = t;
+    }
+
+    while (1) {
+        if (n == 0) {
+            break;
+        }
+
+        unsigned long mod = m%n;
+
+        m = n;
+        n = mod;
+    }
+
+    return m;
+}
+
+static unsigned long
+lcm(unsigned long m, unsigned long n)
+{
+    unsigned long nm = m*n;
+
+    return nm / gcd(m,n);
+}
+
 
 struct MatmulBenchResult *
 matmul_bench_run(struct MatmulBench *b,
                  struct MatmulBenchConfig *c,
                  matmul_bench_finish_callback_t callback)
 {
-    return NULL;
+    struct MatmulBenchResult *r = malloc(sizeof(*r));
+    int num_enable = 0;
+    int i;
+    for (i=0; i<b->num_test; i++) {
+        if (c->enable[i]) {
+            num_enable++;
+        }
+    }
+
+    int *test_map = malloc(sizeof(int) * num_enable);
+    int ti = 0;
+    unsigned long test_size_step_lcm = 1;
+
+    for (i=0; i<b->num_test; i++) {
+        if (c->enable[i]) {
+            test_map[ti++] = i;
+
+            test_size_step_lcm = lcm(test_size_step_lcm, b->test_set[i].size_step);
+        }
+    }
+
+    unsigned long run_size_step = c->size_step;
+
+    if (run_size_step < test_size_step_lcm) {
+        run_size_step = test_size_step_lcm;
+    } else {
+        run_size_step = CEIL_DIV(run_size_step,test_size_step_lcm) * test_size_step_lcm;
+    }     
+
+    unsigned long size_min = CEIL_DIV(c->size_min, run_size_step) * run_size_step;
+
+    printf("%d %d\n", (int)run_size_step, (int)size_min);
+
+    r->test_map = test_map;
+
+    return r;
 }
 
 void
 matmul_bench_result_fini(struct MatmulBench *b,
                          struct MatmulBenchResult *r)
 {
+    free(r->test_map);
+    free(r);
 }       
 
 

@@ -70,5 +70,6 @@ void matmulbench_init_neon(struct MatmulBench *b, struct npr_varray *test_set);
 void matmulbench_init_vfpv4(struct MatmulBench *b, struct npr_varray *test_set);
 
 #define MATMULBENCH_TEST_INITIALIZER(name,run,size_step) {name, run, size_step}
+#define CEIL_DIV(a,b) (((a)+((b)-1))/(b))
 
 #endif

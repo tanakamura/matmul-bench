@@ -17,6 +17,8 @@ usage(void)
     puts(" -n : matrix size (default auto)");
     puts(" -t : set test list (default all)");
     puts(" -i : num iter (default 3)");
+    puts(" -m : min size (default 1)");
+    puts(" -s : size step (default 1)");
 }
 
 static void
@@ -42,6 +44,8 @@ main(int argc, char **argv)
     unsigned long size1 = 512;
     const char *test_list=NULL;
     int iter = 3;
+    unsigned long size_min = 1;
+    unsigned long size_step = 1;
 
     for (ai=1; ai<argc; ai++) {
         if (argv[ai][0] == '-') {
@@ -58,6 +62,7 @@ main(int argc, char **argv)
                 }
 
                 size1 = atoi(argv[ai+1]);
+                ai++;
                 break;
 
             case 't':
@@ -67,6 +72,27 @@ main(int argc, char **argv)
                 }
 
                 test_list = argv[ai+1];
+                ai++;
+                break;
+
+            case 's':
+                if (ai == argc-1) {
+                    usage();
+                    exit(1);
+                }
+
+                size_step = atoi(argv[ai+1]);
+                ai++;
+                break;
+
+            case 'm':
+                if (ai == argc-1) {
+                    usage();
+                    exit(1);
+                }
+
+                size_min = atoi(argv[ai+1]);
+                ai++;
                 break;
 
             case 'h':
@@ -125,6 +151,8 @@ main(int argc, char **argv)
     }
 
     config->iter = iter;
+    config->size_min = size_min;
+    config->size_step = size_step;
 
     if (test_list) {
         int i;
