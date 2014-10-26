@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <math.h>
 
 #include "matmul-bench.h"
 #include "matmul-bench-common.h"
@@ -347,6 +347,20 @@ matmul_bench_run(struct MatmulBench *b,
                 double te = matmul_bench_sec();
 
                 callback(t, te-tb, iter_i, n);
+
+                if (ti != 0) {
+                    float *out0 = out_set[0];
+
+                    for (int i=0; i<n*n; i++) {
+                        float delta = fabs(out[i]-out0[i]);
+                        double ratio = (delta/fabs(out0[i]))*100;
+
+                        if (ratio > 1e-3) {
+                            printf("error delta=%e(%e[%%]), simple=%e, opt=%e\n", delta, ratio, out[i], out0[i]);
+                            exit(1);
+                        }
+                    }
+                }
             }
         }
 
