@@ -94,7 +94,7 @@ matmul_bench_init(void)
     matmulbench_init_opt_c(ret, &test_set);
 
 #ifdef ARCH_X86
-    unsigned int eax, ebx, ecx=0, edx;
+    unsigned int eax=0, ebx=0, ecx=0, edx=0;
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
 
     if (edx & (1<<25)) {
@@ -209,6 +209,36 @@ matmul_bench_config_fini(struct MatmulBench *mb,
     free(mbc);
 }
 
+int
+matmul_bench_config_enable_test(struct MatmulBench *mb,
+                                struct MatmulBenchConfig *config,
+                                const char *test_name)
+{
+    int i;
+    for (i=0; i<mb->num_test; i++) {
+        if (strcmp(mb->test_set[i].name, test_name) == 0) {
+            config->enable[i] = 1;
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+
+struct MatmulBenchResult *
+matmul_bench_run(struct MatmulBench *b,
+                 struct MatmulBenchConfig *c,
+                 matmul_bench_finish_callback_t callback)
+{
+    return NULL;
+}
+
+void
+matmul_bench_result_fini(struct MatmulBench *b,
+                         struct MatmulBenchResult *r)
+{
+}       
 
 
 #if 0

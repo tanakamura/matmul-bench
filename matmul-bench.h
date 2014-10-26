@@ -64,6 +64,11 @@ struct MatmulBenchTest {
     unsigned long size_step;
 };
 
+typedef void (*matmul_bench_finish_callback_t)(const struct MatmulBenchTest *test,
+                                               double sec,
+                                               unsigned int iter,
+                                               unsigned long mat_size);
+
 #define MATMULBENCH_FEATURE_SSE (1<<0)
 #define MATMULBENCH_FEATURE_AVX (1<<1)
 #define MATMULBENCH_FEATURE_FMA (1<<2)
@@ -97,7 +102,8 @@ int matmul_bench_config_disable_test(struct MatmulBench *mb,
                                      const char *test_name);
 
 struct MatmulBenchResult *matmul_bench_run(struct MatmulBench *mb,
-                                           struct MatmulBenchConfig *param);
+                                           struct MatmulBenchConfig *config,
+                                           matmul_bench_finish_callback_t callback);
 void matmul_bench_result_fini(struct MatmulBench *mb,
                               struct MatmulBenchResult *param);
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "matmul-bench.h"
 
 enum run_type {
@@ -18,13 +19,28 @@ usage(void)
     puts(" -i : num iter (default 3)");
 }
 
+static void
+disp_flops(const struct MatmulBenchTest *test,
+           double sec,
+           unsigned int iter,
+           unsigned long mat_size)
+{
+    double n = mat_size;
+    printf("%d:%-20s: sec=%8.5f, %9.5f[GFLOPS], %8.5f[GB/s]\n",
+           iter,
+           test->name,
+           sec,
+           n*n*n*2/(sec*1024.0*1024.0*1024.0),
+           (n*n*3.0*sizeof(float))/(sec*1024.0*1024.0*1024.0));
+}
+
 int
 main(int argc, char **argv)
 {
     int ai;
     enum run_type run_type = RUN_ALL;
     unsigned long size1 = 512;
-    const char *test_list;
+    const char *test_list=NULL;
     int iter = 3;
 
     for (ai=1; ai<argc; ai++) {
@@ -109,6 +125,37 @@ main(int argc, char **argv)
     }
 
     config->iter = iter;
+
+    if (test_list) {
+        int i;
+        for (i=0; i<b->num_test; i++) {
+            config->enable[i] = 0;
+        }
+
+        char name[512];
+        size_t cur = 0;
+        size_t len = strlen(test_list);
+
+        while (cur < len) {
+            for (i=0; i<511; i++, cur++) {
+                if (test_list[cur] == ',' || test_list[cur] == '\0') {
+                    cur++;
+                    name[i] = '\0';
+                    break;
+                }
+                name[i] = test_list[cur];
+            }
+
+            int r = matmul_bench_config_enable_test(b, config, name);
+            if (r < 0) {
+                fprintf(stderr, "test '%s' is not defined.\n", name);
+                exit(1);
+            }
+        }
+    }
+
+    struct MatmulBenchResult *result = matmul_bench_run(b, config, disp_flops);
+    matmul_bench_result_fini(b, result);
 
     matmul_bench_config_fini(b, config);
     matmul_bench_fini(b);
