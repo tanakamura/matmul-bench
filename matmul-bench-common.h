@@ -9,7 +9,6 @@
 #define HAVE_VEC_EXT
 #endif
 
-
 #include "matmul-bench.h"
 #include "npr/varray.h"
 

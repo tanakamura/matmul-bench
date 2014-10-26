@@ -1,3 +1,6 @@
+#define _WIN32_WINNT 0x0600
+#define _CRT_RAND_S
+
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -19,12 +22,13 @@
 static LARGE_INTEGER freq;
 static INIT_ONCE g_InitOnce = INIT_ONCE_STATIC_INIT;
 
-static void
+static BOOL CALLBACK
 init1(PINIT_ONCE InitOnce,
-      PVOID Parameter
-      PVOID *lpContext)
+      PVOID Parameter,
+      LPVOID *lpContext)
 {
-    QueryPerformanceFrequency(&freq);    
+    QueryPerformanceFrequency(&freq);
+    return TRUE;
 }
 
 double
