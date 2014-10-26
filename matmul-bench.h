@@ -35,12 +35,14 @@ struct MatmulBenchConfig {
 
 struct MatmulBenchTestResult {
     int num_run;
-    double **sec;               /* sec[iter][num_run] */
+    double **sec;               /* sec[num_run][iter] */
 };
 
 struct MatmulBenchResult {
     int num_test;
     int *test_map;              /* 結果とMatmulBench::test_setの対応 */
+
+    int num_run_max;
 
     unsigned int num_run;       /* 最大run数 */
     unsigned long run_size_step; /* config::size_stepを全テストの最小公倍数になるようにテストした値 */

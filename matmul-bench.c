@@ -261,6 +261,10 @@ lcm(unsigned long m, unsigned long n)
     return nm / gcd(m,n);
 }
 
+struct RunTestState {
+    struct npr_varray time_list;
+    double *sec_buffer;
+};
 
 struct MatmulBenchResult *
 matmul_bench_run(struct MatmulBench *b,
@@ -277,9 +281,14 @@ matmul_bench_run(struct MatmulBench *b,
     }
 
     int *test_map = malloc(sizeof(int) * num_enable);
+    r->test_map = test_map;
+    r->num_test = num_enable;
 
     int *timeout = malloc(sizeof(int) * num_enable);
-    int *timeout_size = malloc(sizeof(int) * num_enable);
+    int *timeout_cur_size = malloc(sizeof(int) * num_enable);
+    struct RunTestState *run_st;
+    run_st = malloc(sizeof(*run_st) * num_enable);
+
 
     int ti = 0;
     unsigned long test_size_step_lcm = 1;
@@ -288,6 +297,9 @@ matmul_bench_run(struct MatmulBench *b,
         if (c->enable[i]) {
             timeout[ti] = 0;
             test_map[ti] = i;
+
+            npr_varray_init(&run_st[ti].time_list, 16, sizeof(double*));
+
             ti++;
 
             test_size_step_lcm = lcm(test_size_step_lcm, b->test_set[i].size_step);
@@ -313,11 +325,13 @@ matmul_bench_run(struct MatmulBench *b,
 
     unsigned long cur_size = run_size_min;
     float **out_set = malloc(sizeof(float*) * num_enable);
+    r->run_size_min = run_size_min;
+    r->run_size_step = run_size_step;
+
 
     while (1) {
         unsigned long n = cur_size;
         int align = 64;
-        int all_timeout = 1;
 
         float *in0_plus1line = _aligned_malloc((n+64)*n * sizeof(float), align);
         float *in1_plus1line = _aligned_malloc((n+64)*n * sizeof(float), align);
@@ -326,6 +340,10 @@ matmul_bench_run(struct MatmulBench *b,
 
         for (int i=0; i<num_enable; i++) {
             out_set[i] = _aligned_malloc(n*n * sizeof(float), align);
+            timeout_cur_size[i] = 0;
+            if (!timeout[i]) {
+                run_st[i].sec_buffer = malloc(c->iter * sizeof(double));
+            }
         }
 
         for (int i=0; i<n; i++) {
@@ -336,40 +354,61 @@ matmul_bench_run(struct MatmulBench *b,
         }
 
         for (int iter_i=0; iter_i<c->iter; iter_i++) {
+            int first_run = -1;
+
             for (int ti=0; ti<num_enable; ti++) {
-                float *out = out_set[ti];
-                struct MatmulBenchTest *t = &b->test_set[test_map[ti]];
+                if (!timeout[ti]) {
+                    float *out = out_set[ti];
+                    struct MatmulBenchTest *t = &b->test_set[test_map[ti]];
 
-                double tb = matmul_bench_sec();
+                    double tb = matmul_bench_sec();
 
-                t->run(out,
-                       in0, in1,
-                       in0_plus1line, in1_plus1line,
-                       n,
-                       (n+16)*4);
+                    t->run(out,
+                           in0, in1,
+                           in0_plus1line, in1_plus1line,
+                           n,
+                           (n+16)*4);
 
-                double te = matmul_bench_sec();
+                    double te = matmul_bench_sec();
+                    double dt = te-tb;
 
-                callback(t, te-tb, iter_i, n);
+                    callback(t, dt, iter_i, n);
+                    
+                    if (dt > c->max_time_sec) {
+                        timeout_cur_size[ti] = 1;
+                    }
 
-                if (ti != 0) {
-                    float *out0 = out_set[0];
+                    run_st[ti].sec_buffer[iter_i] = dt;
 
-                    for (int i=0; i<n*n; i++) {
-                        float delta = fabs(out[i]-out0[i]);
-                        double ratio = (delta/fabs(out0[i]))*100;
+                    if (first_run == -1) {
+                        first_run = ti;
+                    } else {
+                        float *out0 = out_set[first_run];
 
-                        if (ratio > 1e-3) {
-                            printf("error delta=%e(%e[%%]), simple=%e, opt=%e\n", delta, ratio, out[i], out0[i]);
-                            exit(1);
+                        for (int i=0; i<n*n; i++) {
+                            float delta = fabs(out[i]-out0[i]);
+                            double ratio = (delta/fabs(out0[i]))*100;
+
+                            if (ratio > 1e-3) {
+                                printf("error delta=%e(%e[%%]), simple=%e, opt=%e\n", delta, ratio, out[i], out0[i]);
+                                exit(1);
+                            }
                         }
                     }
                 }
             }
         }
 
+        int all_timeout = 1;
         for (int i=0; i<num_enable; i++) {
+            if (!timeout[i]) {
+                VA_PUSH(double *, &run_st[i].time_list, run_st[i].sec_buffer);
+                run_st[i].sec_buffer = NULL;
+            }
+
             free(out_set[i]);
+            timeout[i] |= timeout_cur_size[i];
+            all_timeout &= timeout[i];
         }
 
         free(in0);
@@ -384,11 +423,27 @@ matmul_bench_run(struct MatmulBench *b,
         cur_size += run_size_step;
     }
 
-    free(out_set);
-    free(timeout_size);
-    free(timeout);
+    struct MatmulBenchTestResult *test_results = malloc(sizeof(*test_results) * num_enable);
 
-    r->test_map = test_map;
+    int num_run_max = 0;
+
+    for (int i=0; i<num_enable; i++) {
+        int num_run = run_st[i].time_list.nelem;
+        test_results[i].num_run = num_run;
+        test_results[i].sec = npr_varray_malloc_close(&run_st[i].time_list);
+
+        if (num_run > num_run_max) {
+            num_run_max = num_run;
+        }
+    }
+
+    r->num_run_max = num_run_max;
+    r->results = test_results;
+
+    free(run_st);
+    free(out_set);
+    free(timeout);
+    free(timeout_cur_size);
 
     return r;
 }
@@ -397,6 +452,16 @@ void
 matmul_bench_result_fini(struct MatmulBench *b,
                          struct MatmulBenchResult *r)
 {
+    for (int ti=0; ti<r->num_test; ti++) {
+        struct MatmulBenchTestResult *tr = &r->results[ti];
+        for (int ri=0; ri<tr->num_run; ri++) {
+            free(tr->sec[ri]);
+        }
+
+        free(tr->sec);
+    }
+
+    free(r->results);
     free(r->test_map);
     free(r);
 }       
