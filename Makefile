@@ -2,6 +2,7 @@ ANDROID_TOOLCHAIN=${HOME}/a/android-ndk-r10c/toolchains/arm-linux-androideabi-4.
 ANDROID_PLATFORM=${HOME}/a/android-ndk-r10c/platforms/android-21/arch-arm/usr
 
 CFLAGS_COMMON=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -fPIC -I$(PWD)
+#CFLAGS_COMMON=-std=gnu99 -Wall -O2 -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -fPIC -I$(PWD)
 
 ifdef SAVE_TEMPS
 	CFLAGS_COMMON+=-save-temps
@@ -88,12 +89,12 @@ dll/x86_64/libmatmul-bench.so: $(X86_LIB_OBJS)
 matmul-bench-w64.exe: $(W64_EXE_OBJS)
 	${X86_64_MINGW64_GCC} ${CFLAGS_COMMON} -static -o $@ $^
 dll/w64/matmul-bench.dll: $(W64_LIB_OBJS)
-	${X86_64_MINGW64_GCC} -Wl,--out-implib=dll/w64/matmul-bench.lib -shared ${CFLAGS_COMMON} -o $@ $^
+	${X86_64_MINGW64_GCC} -Wl,--out-implib=dll/w64/matmul-bench.lib -static -s -shared ${CFLAGS_COMMON} -o $@ $^
 
 matmul-bench-w32.exe: $(W32_EXE_OBJS)
 	${X86_MINGW32_GCC} ${CFLAGS_W32} -o $@ $^
 dll/w32/matmul-bench.dll: $(W32_LIB_OBJS)
-	${X86_MINGW32_GCC} -Wl,--out-implib=dll/w32/matmul-bench.lib -shared ${CFLAGS_W32} -o $@ $^
+	${X86_MINGW32_GCC} -Wl,--out-implib=dll/w32/matmul-bench.lib -static -s -shared ${CFLAGS_W32} -o $@ $^
 
 matmul-bench-arm-linux: $(ARM_LINUX_EXE_OBJS)
 	${ARM_LINUX_GCC} ${CFLAGS_COMMON} -o $@ $^

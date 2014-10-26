@@ -1,3 +1,0 @@
-# -*- makefile -*-
-matmul-bench.exe: matmul-bench.c avxfunc.h
-	cl /arch:AVX /D__SSE__ /D__FMA__ /Fa /openmp /O2 /Zi matmul-bench.c
