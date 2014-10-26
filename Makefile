@@ -12,6 +12,8 @@ ARM_LINUX_GCC=arm-linux-gnueabihf-gcc
 X86_64_LINUX_GCC=x86_64-linux-gnu-gcc
 X86_64_MINGW64_GCC=x86_64-w64-mingw32-gcc
 X86_MINGW32_GCC=i686-w64-mingw32-gcc
+X86_64_MINGW64_DLLTOOL=x86_64-w64-mingw32-dlltool
+X86_MINGW32_DLLTOOL=i686-w64-mingw32-dlltool
 
 ALL_TARGET=
 
@@ -20,11 +22,11 @@ ALL_TARGET+=matmul-bench-x86_64-linux dll/x86_64/libmatmul-bench.so
 endif
 
 ifneq ("$(shell which ${X86_64_MINGW64_GCC})","")
-ALL_TARGET+=matmul-bench-w64.exe dll/w64/libmatmul-bench.dll
+ALL_TARGET+=matmul-bench-w64.exe dll/w64/matmul-bench.dll
 endif
 
 ifneq ("$(shell which ${X86_MINGW32_GCC})","")
-ALL_TARGET+=matmul-bench-w32.exe dll/w32/libmatmul-bench.dll
+ALL_TARGET+=matmul-bench-w32.exe dll/w32/matmul-bench.dll
 endif
 
 ifneq ("$(shell which ${ARM_LINUX_GCC})","")
@@ -83,14 +85,13 @@ dll/x86_64/libmatmul-bench.so: $(X86_LIB_OBJS)
 
 matmul-bench-w64.exe: $(W64_EXE_OBJS)
 	${X86_64_MINGW64_GCC} ${CFLAGS_COMMON} -static -o $@ $^
-dll/w64/libmatmul-bench.dll: $(W64_LIB_OBJS)
-	${X86_64_MINGW64_GCC} -shared ${CFLAGS_COMMON} -o $@ $^
+dll/w64/matmul-bench.dll: $(W64_LIB_OBJS)
+	${X86_64_MINGW64_GCC} -Wl,--out-implib=dll/w64/matmul-bench.lib -shared ${CFLAGS_COMMON} -o $@ $^
 
 matmul-bench-w32.exe: $(W32_EXE_OBJS)
 	${X86_MINGW32_GCC} ${CFLAGS_COMMON} -o $@ $^
-dll/w32/libmatmul-bench.dll: $(W32_LIB_OBJS)
-	${X86_MINGW32_GCC} -shared ${CFLAGS_COMMON} -o $@ $^
-
+dll/w32/matmul-bench.dll: $(W32_LIB_OBJS)
+	${X86_MINGW32_GCC} -Wl,--out-implib=dll/w32/matmul-bench.lib -shared ${CFLAGS_COMMON} -o $@ $^
 
 matmul-bench-arm-linux: $(ARM_LINUX_EXE_OBJS)
 	${ARM_LINUX_GCC} ${CFLAGS_COMMON} -o $@ $^
