@@ -77,6 +77,8 @@ ALL_PPS=$(ALL_SRCS:.c=.i)
 ALL_DEPS=$(ALL_OBJS:.o=.d)
 
 CFLAGS_ANDROID=$(CFLAGS_COMMON) -I${ANDROID_PLATFORM}/include -L${ANDROID_PLATFORM}/lib --sysroot ${ANDROID_PLATFORM}
+CFLAGS_W32=-msse2 $(CFLAGS_COMMON) -static 
+
 
 matmul-bench-x86_64-linux: $(X86_EXE_OBJS)
 	${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -o $@ $^
@@ -89,9 +91,9 @@ dll/w64/matmul-bench.dll: $(W64_LIB_OBJS)
 	${X86_64_MINGW64_GCC} -Wl,--out-implib=dll/w64/matmul-bench.lib -shared ${CFLAGS_COMMON} -o $@ $^
 
 matmul-bench-w32.exe: $(W32_EXE_OBJS)
-	${X86_MINGW32_GCC} ${CFLAGS_COMMON} -o $@ $^
+	${X86_MINGW32_GCC} ${CFLAGS_W32} -o $@ $^
 dll/w32/matmul-bench.dll: $(W32_LIB_OBJS)
-	${X86_MINGW32_GCC} -Wl,--out-implib=dll/w32/matmul-bench.lib -shared ${CFLAGS_COMMON} -o $@ $^
+	${X86_MINGW32_GCC} -Wl,--out-implib=dll/w32/matmul-bench.lib -shared ${CFLAGS_W32} -o $@ $^
 
 matmul-bench-arm-linux: $(ARM_LINUX_EXE_OBJS)
 	${ARM_LINUX_GCC} ${CFLAGS_COMMON} -o $@ $^
@@ -109,7 +111,7 @@ $(PWD)/obj/x86_64/%.o: $(PWD)/npr/%.c
 $(PWD)/obj/w64/%.o: $(PWD)/npr/%.c
 	cd obj/w64; ${X86_64_MINGW64_GCC} ${CFLAGS_COMMON} -c -o $@ $<
 $(PWD)/obj/w32/%.o: $(PWD)/npr/%.c
-	cd obj/w32; ${X86_MINGW32_GCC} ${CFLAGS_COMMON} -static -c -o $@ $<
+	cd obj/w32; ${X86_MINGW32_GCC} ${CFLAGS_W32} -c -o $@ $<
 $(PWD)/obj/arm-linux/%.o: $(PWD)/npr/%.c
 	cd obj/arm-linux; ${ARM_LINUX_GCC} ${CFLAGS_COMMON} -c -o $@ $<
 $(PWD)/obj/arm-android/%.o: $(PWD)/npr/%.c
@@ -121,7 +123,7 @@ $(PWD)/obj/x86_64/%.o: $(PWD)/%.c
 $(PWD)/obj/w64/%.o: $(PWD)/%.c
 	cd obj/w64; ${X86_64_MINGW64_GCC} ${CFLAGS_COMMON} -c -o $@ $<
 $(PWD)/obj/w32/%.o: $(PWD)/%.c
-	cd obj/w32; ${X86_MINGW32_GCC} ${CFLAGS_COMMON} -msse3 -c -o $@ $<
+	cd obj/w32; ${X86_MINGW32_GCC} ${CFLAGS_W32} -c -o $@ $<
 $(PWD)/obj/arm-linux/%.o: $(PWD)/%.c
 	cd obj/arm-linux; ${ARM_LINUX_GCC} ${CFLAGS_COMMON} -c -o $@ $<
 $(PWD)/obj/arm-android/%.o: $(PWD)/%.c
@@ -137,9 +139,9 @@ $(PWD)/obj/w64/matmul-bench-avx.o: $(PWD)/matmul-bench-avx.c
 $(PWD)/obj/w64/matmul-bench-fma.o: $(PWD)/matmul-bench-fma.c
 	cd obj/w64; ${X86_64_MINGW64_GCC} ${CFLAGS_COMMON} -march=native -mtune=native -mfma -c -o $@ $<
 $(PWD)/obj/w32/matmul-bench-avx.o: $(PWD)/matmul-bench-avx.c
-	cd obj/w32; ${X86_MINGW32_GCC} ${CFLAGS_COMMON} -mavx -c -o $@ $<
+	cd obj/w32; ${X86_MINGW32_GCC} ${CFLAGS_W32} -mavx -c -o $@ $<
 $(PWD)/obj/w32/matmul-bench-fma.o: $(PWD)/matmul-bench-fma.c
-	cd obj/w32; ${X86_MINGW32_GCC} ${CFLAGS_COMMON} -march=native -mtune=native -mfma -c -o $@ $<
+	cd obj/w32; ${X86_MINGW32_GCC} ${CFLAGS_W32} -march=native -mtune=native -mfma -c -o $@ $<
 
 $(PWD)/obj/arm-linux/matmul-bench-neon.o: $(PWD)/matmul-bench-neon.c
 	cd obj/arm-linux; ${ARM_LINUX_GCC} ${CFLAGS_COMMON} -mfloat-abi=hard -mfpu=neon -c -o $@ $<

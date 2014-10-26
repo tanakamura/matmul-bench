@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <float.h>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #include "matmul-bench.h"
 
 enum run_type {
@@ -13,7 +17,7 @@ enum run_type {
 static void
 usage(void)
 {
-    puts("matmul-bench [-n size] [-I] [-t test1,test2,...] [-i iter] [-m <min size>] [-s <size step>] [-T <time limit>] [-o out.csv]");
+    puts("matmul-bench [-n size] [-I] [-t test1,test2,...] [-i iter] [-m <min size>] [-s <size step>] [-T <time limit>] [-o out.csv] [-O theradnum] ");
     puts(" -I : display test info");
     puts(" -n : matrix size (default : auto)");
     puts(" -t : set test list (default : all)");
@@ -22,6 +26,7 @@ usage(void)
     puts(" -s : size step (default 64)");
     puts(" -T : time limit [float sec] (default 0.5)");
     puts(" -o : out csv");
+    puts(" -O : omp thread num");
 }
 
 static void
@@ -133,6 +138,19 @@ main(int argc, char **argv)
                 out_csv = argv[ai+1];
                 ai++;
                 break;
+
+            case 'O':
+                if (ai == argc-1) {
+                    usage();
+                    exit(1);
+                }
+#ifdef _OPENMP
+                omp_set_num_threads(atoi(argv[ai+1]));
+#endif
+                ai++;
+                break;
+                
+                
 
             default:
                 usage();
