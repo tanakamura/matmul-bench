@@ -10,7 +10,7 @@
 
 #endif
 
-static const struct MatmulBenchTest fma = MATMULBENCH_TEST_INITIALIZER("fma", fma_run, 192);
+static const struct MatmulBenchTest fma = MATMULBENCH_TEST_INITIALIZER("fma", fma_run, 384);
 
 void
 matmulbench_init_fma(struct MatmulBench *b, struct npr_varray *test_set)

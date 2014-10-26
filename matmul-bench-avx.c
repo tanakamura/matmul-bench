@@ -9,7 +9,7 @@
 #endif
 
 
-static const struct MatmulBenchTest avx = MATMULBENCH_TEST_INITIALIZER("avx", avx_run, 192);
+static const struct MatmulBenchTest avx = MATMULBENCH_TEST_INITIALIZER("avx", avx_run, 384);
 
 void
 matmulbench_init_avx(struct MatmulBench *b, struct npr_varray *test_set)
