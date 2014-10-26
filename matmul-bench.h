@@ -4,14 +4,16 @@
 #ifdef _WIN32
 #include <windows.h>
 
-#ifdef MATMULBENCH_BUILD_LIB
-#define MATMULBENCH_EXPORT __declspec(dllexport)
+#ifdef MATMUL_BENCH_BUILD_LIB
+#define MATMUL_BENCH_EXPORT __declspec(dllexport)
 #else
-#define MATMULBENCH_EXPORT __declspec(dllimport)
+#define MATMUL_BENCH_EXPORT __declspec(dllimport)
 #endif
 
 #else
-#define MATMULBENCH_EXPORT __attribute__((visivility("default")))
+
+#define MATMUL_BENCH_EXPORT __attribute__((visibility("default")))
+
 #endif
 
 
@@ -84,27 +86,27 @@ struct MatmulBench {
 
 struct MatmulBenchResult;
 
-struct MatmulBench *matmul_bench_init(void);
-void matmul_bench_fini(struct MatmulBench *mb);
+MATMUL_BENCH_EXPORT struct MatmulBench *matmul_bench_init(void);
+MATMUL_BENCH_EXPORT void matmul_bench_fini(struct MatmulBench *mb);
 
 /*
  * iter = 3, 全テスト, サイズ自動でパラメータ設定
  */
-struct MatmulBenchConfig *matmul_bench_config_init(struct MatmulBench *mb);
-void matmul_bench_config_fini(struct MatmulBench *mb, struct MatmulBenchConfig *c);
+MATMUL_BENCH_EXPORT struct MatmulBenchConfig *matmul_bench_config_init(struct MatmulBench *mb);
+MATMUL_BENCH_EXPORT void matmul_bench_config_fini(struct MatmulBench *mb, struct MatmulBenchConfig *c);
 
 /* 名前が見つからなかったら-1を返す */
-int matmul_bench_config_enable_test(struct MatmulBench *mb,
-                                    struct MatmulBenchConfig *config,
-                                    const char *test_name);
-int matmul_bench_config_disable_test(struct MatmulBench *mb,
-                                     struct MatmulBenchConfig *config,
-                                     const char *test_name);
+MATMUL_BENCH_EXPORT int matmul_bench_config_enable_test(struct MatmulBench *mb,
+                                                        struct MatmulBenchConfig *config,
+                                                        const char *test_name);
+MATMUL_BENCH_EXPORT int matmul_bench_config_disable_test(struct MatmulBench *mb,
+                                                         struct MatmulBenchConfig *config,
+                                                         const char *test_name);
 
-struct MatmulBenchResult *matmul_bench_run(struct MatmulBench *mb,
-                                           struct MatmulBenchConfig *config,
-                                           matmul_bench_finish_callback_t callback);
-void matmul_bench_result_fini(struct MatmulBench *mb,
-                              struct MatmulBenchResult *param);
+MATMUL_BENCH_EXPORT struct MatmulBenchResult *matmul_bench_run(struct MatmulBench *mb,
+                                                               struct MatmulBenchConfig *config,
+                                                               matmul_bench_finish_callback_t callback);
+MATMUL_BENCH_EXPORT void matmul_bench_result_fini(struct MatmulBench *mb,
+                                                  struct MatmulBenchResult *param);
 
 #endif

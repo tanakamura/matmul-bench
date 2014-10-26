@@ -29,7 +29,8 @@ disp_flops(const struct MatmulBenchTest *test,
            unsigned long mat_size)
 {
     double n = mat_size;
-    printf("%d:%-20s: sec=%8.5f, %9.5f[GFLOPS], %8.5f[GB/s]\n",
+    printf("(%5d-%2d):%-20s: sec=%8.5f, %9.5f[GFLOPS], %8.5f[GB/s]\n",
+           mat_size,
            iter,
            test->name,
            sec,
