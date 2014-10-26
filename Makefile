@@ -6,7 +6,7 @@ ifeq (${CROSS}, 1)
 CFLAGS=-std=gnu99 -Wall -O2 -ffast-math -mfloat-abi=hard -fopenmp -mfpu=neon -mtune=cortex-a9 -mcpu=cortex-a9 -falign-loops=16 -save-temps
 CC=arm-linux-gnueabihf-gcc
 else ifeq (${ANDROID}, 1)
-CFLAGS=-std=gnu99 -Wall -O2 -ffast-math -mfloat-abi=softfp -mfpu=neon-vfpv4 -mtune=cortex-a15 -mcpu=cortex-a15 -save-temps -fopenmp -I${ANDROID_PLATFORM}/include -L${ANDROID_PLATFORM}/lib --sysroot ${ANDROID_PLATFORM}
+CFLAGS=-std=gnu99 -Wall -O2 -ffast-math -mfloat-abi=softfp -save-temps -fopenmp -I${ANDROID_PLATFORM}/include -L${ANDROID_PLATFORM}/lib --sysroot ${ANDROID_PLATFORM}
 CC=${ANDROID_TOOLCHAIN}/arm-linux-androideabi-gcc
 else
 CFLAGS=-std=gnu99 -Wall -O2 -fopenmp -ffast-math -mtune=native -save-temps -march=native
