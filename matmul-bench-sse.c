@@ -1,3 +1,6 @@
+
+#include <emmintrin.h>
+
 #include "matmul-bench-common.h"
 
 #ifdef __SSE__

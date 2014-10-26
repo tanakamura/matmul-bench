@@ -1,7 +1,7 @@
 #ifndef MATMUL_BENCH_COMMON_H
 #define MATMUL_BENCH_COMMON_H
 
-#if defined __x86_64__  || defined __x86__
+#if defined __x86_64__  || defined __i386__
 #define ARCH_X86
 #endif
 
@@ -25,10 +25,10 @@ struct MatmulBench;
 #endif
 
 #ifdef ARCH_X86
-#ifdef _WIN32
-#include <intrin.h>
-#else
+#ifdef __GNUC__
 #include <x86intrin.h>
+#else
+#include <intrin.h>
 #endif
 #endif
 
