@@ -5,7 +5,7 @@
 (理論値 : コア x SIMD x MulAdd x freq)
 
  * i7-4930K (3.40GHz, Ivy, 6core, 12thread, Linux, Turbo 3.9GHz あり)
-  - AVX 版 2688x2688 sec= 0.16162, 223.83316[GFLOPS]
+  - AVX 版 2688x2688 sec=0.16162, 223.83316[GFLOPS]
   - 理論値 6 x 8 x 2 x 3.4 = 326.4[GFLOPS]
   - -std=gnu99 -Wall -O2 -fopenmp -ffast-math -mtune=native -save-temps -march=native
   - 68.6%
