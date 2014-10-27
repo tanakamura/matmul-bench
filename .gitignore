@@ -1,6 +1,7 @@
 matmul-bench
 *~
 *.ilk
+*.lib
 *.obj
 *.exe
 *.pdb
