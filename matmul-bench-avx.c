@@ -2,6 +2,8 @@
 
 #include "matmul-bench-common.h"
 
+#define MAT_4x2
+
 #define AVX_OP(I,J)                                                     \
     vout##I##_##J = _mm256_add_ps(vout##I##_##J, _mm256_mul_ps(lik##I##_8, vr##J)); \
 
@@ -9,7 +11,7 @@
 #include "matmul-bench-avxfunc.h"
 
 
-static const struct MatmulBenchTest avx = MATMULBENCH_TEST_INITIALIZER("avx", avx_run, 384);
+static const struct MatmulBenchTest avx = MATMULBENCH_TEST_INITIALIZER("avx", avx_run, 128);
 
 void
 matmulbench_init_avx(struct MatmulBench *b, struct npr_varray *test_set)

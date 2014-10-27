@@ -1,6 +1,8 @@
 #include <immintrin.h>
 #include "matmul-bench-common.h"
 
+#define MAT_4x3
+
 #define AVX_OP(I,J)                                                  \
     vout##I##_##J = _mm256_fmadd_ps(lik##I##_8, vr##J, vout##I##_##J); \
 

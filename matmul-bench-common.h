@@ -52,6 +52,9 @@ struct MatmulBench;
 
 
 
+#define M4(M)                                   \
+    M(0) M(1) M(2) M(3)
+
 #define M8(M)                                   \
     M(0) M(1) M(2) M(3) M(4) M(5) M(6) M(7)
 
