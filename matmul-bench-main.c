@@ -57,6 +57,7 @@ main(int argc, char **argv)
     unsigned long size_min = 64;
     unsigned long size_step = 64;
     double timeout_sec = 0.5;
+    int num_thread = 0;
 
     for (ai=1; ai<argc; ai++) {
         if (argv[ai][0] == '-') {
@@ -144,13 +145,9 @@ main(int argc, char **argv)
                     usage();
                     exit(1);
                 }
-#ifdef _OPENMP
-                omp_set_num_threads(atoi(argv[ai+1]));
-#endif
+                num_thread = atoi(argv[ai+1]);
                 ai++;
                 break;
-                
-                
 
             default:
                 usage();
@@ -164,7 +161,7 @@ main(int argc, char **argv)
         exit(0);
     }
 
-    struct MatmulBench *b = matmul_bench_init();
+    struct MatmulBench *b = matmul_bench_init(num_thread);
     if (run_type == DISPLAY_TEST_INFO) {
         int i;
         printf("<cpu feature =");
@@ -190,7 +187,7 @@ main(int argc, char **argv)
         printf(">\n");
 
         for (i=0; i<b->num_test; i++) {
-            printf("%15s: size_step=%ld\n", b->test_set[i].name, b->test_set[i].size_step);
+            printf("%15s: size_step=%d\n", b->test_set[i].name, b->test_set[i].size_step);
         }
 
         matmul_bench_fini(b);

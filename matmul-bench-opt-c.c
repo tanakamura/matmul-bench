@@ -5,14 +5,14 @@ typedef float v4sf __attribute__((vector_size (16)));
 typedef float v8sf __attribute__((vector_size (32)));
 
 static void
-gccvec4_run(float * __restrict out,
-            const float * __restrict inL,
-            const float * __restrict inR,
-            const float * __restrict inL_plus1line,
-            const float * __restrict inR_plus1line,
-            unsigned int n,
-            unsigned int pitch_byte)
+gccvec4_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+
+    unsigned int n = p->n;
+
     int i;
 
 #pragma omp parallel for
@@ -36,14 +36,14 @@ gccvec4_run(float * __restrict out,
 }
 
 static void
-gccvec8_run(float * __restrict out,
-            const float * __restrict inL,
-            const float * __restrict inR,
-            const float * __restrict inL_plus1line,
-            const float * __restrict inR_plus1line,
-            unsigned int n,
-            unsigned int pitch_byte)
+gccvec8_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+
+    unsigned int n = p->n;
+
     int i;
 
 #pragma omp parallel for
@@ -69,14 +69,14 @@ gccvec8_run(float * __restrict out,
 #endif
 
 static void
-block_run(float * __restrict out,
-          const float * __restrict inL,
-          const float * __restrict inR,
-          const float * __restrict inL_plus1line,
-          const float * __restrict inR_plus1line,
-          unsigned int n,
-          unsigned int pitch_byte)
+block_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+
+    unsigned int n = p->n;
+
     unsigned int block_size = 32;
     int i0, i;
 
@@ -114,14 +114,14 @@ block_run(float * __restrict out,
 
 
 static void
-block_unroll_run(float * __restrict out,
-                 const float * __restrict inL,
-                 const float * __restrict inR,
-                 const float * __restrict inL_plus1line,
-                 const float * __restrict inR_plus1line,
-                 unsigned int n,
-                 unsigned int pitch_byte)
+block_unroll_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+
+    unsigned int n = p->n;
+
     unsigned int block_size = 16;
     int i0;
 

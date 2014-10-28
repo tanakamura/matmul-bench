@@ -9,7 +9,7 @@
 #define AVX_OP_2(J) AVX_OP(2,J)
 #endif
 
-static NOINLINE void
+static NOINLINE W32_ALIGN_ARG_POINTER void
 CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
                         unsigned long j0,
                         unsigned long k0,
@@ -159,14 +159,16 @@ CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
 
 
 static void
-AVX_FUNC_NAME(float * __restrict out,
-              const float * __restrict inL,
-              const float * __restrict inR,
-              const float * __restrict inL_plus1line,
-              const float * __restrict inR_plus1line,
-              unsigned int n,
-              unsigned int pitch_byte)
+AVX_FUNC_NAME(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    unsigned long n = p->n;
+
+    const float * __restrict inL_plus1line = p->inL_plus1line;
+    const float * __restrict inR_plus1line = p->inR_plus1line;
+    unsigned int pitch_byte = p->pitch_byte;
+
+
 #ifdef MAT_4x3
     unsigned long block_size_i = 48;
 #else

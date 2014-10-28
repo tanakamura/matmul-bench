@@ -1,16 +1,14 @@
 #include "matmul-bench-common.h"
 
 static void
-simple_run(float * __restrict out,
-           const float * __restrict inL,
-           const float * __restrict inR,
-           
-           const float * __restrict inL_plus1line,
-           const float * __restrict inR_plus1line,
-           
-           unsigned int n,
-           unsigned int pitch_byte)
+simple_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+
+    unsigned int n = p->n;
+
     for (int i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             float v = 0;
@@ -24,16 +22,13 @@ simple_run(float * __restrict out,
 }
 
 static void
-simple_omp_run(float * __restrict out,
-               const float * __restrict inL,
-               const float * __restrict inR,
-           
-               const float * __restrict inL_plus1line,
-               const float * __restrict inR_plus1line,
-           
-               unsigned int n,
-               unsigned int pitch_byte)
+simple_omp_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+
+    unsigned int n = p->n;
     int i;
 #pragma omp parallel for
     for (i=0; i<n; i++) {
@@ -49,16 +44,13 @@ simple_omp_run(float * __restrict out,
 }
 
 static void
-outer_run(float * __restrict out,
-          const float * __restrict inL,
-          const float * __restrict inR,
-           
-          const float * __restrict inL_plus1line,
-          const float * __restrict inR_plus1line,
-          
-          unsigned int n,
-          unsigned int pitch_byte)
+outer_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+
+    unsigned int n = p->n;
     int i;
 
 #pragma omp parallel for

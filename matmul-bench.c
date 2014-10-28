@@ -18,6 +18,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <process.h>
 
 static LARGE_INTEGER freq;
 static INIT_ONCE g_InitOnce = INIT_ONCE_STATIC_INIT;
@@ -55,6 +56,7 @@ drand(void)
 
 
 #else
+#include <unistd.h>
 
 
 double
@@ -78,7 +80,7 @@ matmul_bench_sec(void)
 #endif
 
 struct MatmulBench *
-matmul_bench_init(void)
+matmul_bench_init(unsigned int num_thread)
 {
     struct MatmulBench *ret = malloc(sizeof(struct MatmulBench));
 
@@ -170,6 +172,43 @@ matmul_bench_init(void)
 
 #endif
 
+#ifdef _WIN32
+    if (num_thread == 0) {
+        SYSTEM_INFO si;
+
+        GetSystemInfo(&si);
+
+        num_thread = si.dwNumberOfProcessors;
+    }
+
+
+    struct MatmulBenchThreadPool *pl = malloc(sizeof(*pl));
+    ret->threads = pl;
+    pl->num_thread = num_thread;
+
+    pl->current_i = _aligned_malloc(64, 64);
+    pl->fini = 0;
+    pl->threads = malloc(sizeof(HANDLE) * num_thread);
+    pl->args = malloc(sizeof(struct MatmulBenchThreadArg) * num_thread);
+
+    for (int ti=0; ti<num_thread; ti++) {
+        pl->args[ti].b = ret;
+        pl->args[ti].to_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
+        pl->args[ti].from_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
+
+        //pl->threads[ti] = (HANDLE)_beginthreadex(NULL, 0, &thread_pool_func, &pl->args[ti], NULL);
+    }
+
+#else
+    if (num_thread == 0) {
+        num_thread = sysconf(_SC_NPROCESSORS_ONLN);
+    }
+
+    ret->threads = malloc(sizeof(*ret->threads));
+    ret->threads->num_thread = num_thread;
+
+#endif
+
     ret->num_test = test_set.nelem;
     ret->test_set = npr_varray_malloc_close(&test_set);
 
@@ -179,6 +218,17 @@ matmul_bench_init(void)
 void
 matmul_bench_fini(struct MatmulBench *mb)
 {
+    struct MatmulBenchThreadPool *pl = mb->threads;
+    int num_thread = pl->num_thread;
+    for (int ti=0; ti<num_thread; ti++) {
+        CloseHandle(pl->args[ti].to_master_ev);
+        CloseHandle(pl->args[ti].from_master_ev);
+    }
+
+    free(pl->threads);
+    free(pl->args);
+    _aligned_free(pl->current_i);
+
     free(mb->test_set);
     free(mb);
 }
@@ -329,6 +379,9 @@ matmul_bench_run(struct MatmulBench *b,
     r->run_size_step = run_size_step;
 
 
+    struct MatmulBenchParam *run_param = _aligned_malloc(sizeof(*run_param), 64);
+
+
     while (1) {
         unsigned long n = cur_size;
         int align = 64;
@@ -353,6 +406,13 @@ matmul_bench_run(struct MatmulBench *b,
             }
         }
 
+        run_param->inL = in0;
+        run_param->inR = in1;
+        run_param->inL_plus1line = in0_plus1line;
+        run_param->inR_plus1line = in1_plus1line;
+        run_param->n = n;
+        run_param->pitch_byte = (n+16)*4;
+
         for (int iter_i=0; iter_i<c->iter; iter_i++) {
             int first_run = -1;
 
@@ -363,17 +423,15 @@ matmul_bench_run(struct MatmulBench *b,
 
                     double tb = matmul_bench_sec();
 
-                    t->run(out,
-                           in0, in1,
-                           in0_plus1line, in1_plus1line,
-                           n,
-                           (n+16)*4);
+                    run_param->out = out;
+
+                    t->run(run_param);
 
                     double te = matmul_bench_sec();
                     double dt = te-tb;
 
                     callback(t, dt, iter_i, n);
-                    
+
                     if (dt > c->max_time_sec) {
                         timeout_cur_size[ti] = 1;
                     }
@@ -422,6 +480,8 @@ matmul_bench_run(struct MatmulBench *b,
 
         cur_size += run_size_step;
     }
+
+    _aligned_free(run_param);
 
     struct MatmulBenchTestResult *test_results = malloc(sizeof(*test_results) * num_enable);
 

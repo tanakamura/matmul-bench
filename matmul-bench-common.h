@@ -75,4 +75,43 @@ void matmulbench_init_vfpv4(struct MatmulBench *b, struct npr_varray *test_set);
 #define MATMULBENCH_TEST_INITIALIZER(name,run,size_step) {name, run, size_step}
 #define CEIL_DIV(a,b) (((a)+((b)-1))/(b))
 
+#ifdef _WIN32
+#define W32_ALIGN_ARG_POINTER __attribute__ ((force_align_arg_pointer))
+#else
+#define W32_ALIGN_ARG_POINTER
+#endif
+
+__attribute__((aligned(64)))
+struct MatmulBenchThreadArg {
+    struct MatmulBench *b;
+    int thread_id;
+
+    HANDLE to_master_ev;
+    HANDLE from_master_ev;
+};
+
+__attribute__((aligned(64))) struct MatmulBenchThreadPool {
+    unsigned int *current_i;
+    unsigned int fini;
+
+    unsigned int max_i;
+
+    int num_thread;
+#ifdef _WIN32
+    HANDLE *threads;
+#else
+    pthread_t *threads;
+#endif
+
+    struct MatmulBenchThreadArg *args;
+};
+
+void matmul_bench_thread_start(struct MatmulBench *mb);
+void matmul_bench_thread_stop(struct MatmulBench *mb);
+
+typedef void (*matmul_bench_thread_func_t)(struct MatmulBench *mb,
+                                           struct MatmulBenchParam *p,
+                                           unsigned int i);
+void matmul_bench_thread_call(struct MatmulBench *mb, int i_range, int i_block, matmul_bench_thread_func_t func);
+
 #endif

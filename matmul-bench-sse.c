@@ -3,7 +3,7 @@
 
 #include "matmul-bench-common.h"
 
-static NOINLINE void
+static NOINLINE W32_ALIGN_ARG_POINTER void
 sse_(unsigned long i0,
      unsigned long j0,
      unsigned long k0,
@@ -64,19 +64,17 @@ sse_(unsigned long i0,
     outp4[5] = _mm_add_ps(outp4[5], vout5);
     outp4[6] = _mm_add_ps(outp4[6], vout6);
     outp4[7] = _mm_add_ps(outp4[7], vout7);
-    
 }
 
 
 static void
-sse_run(float * __restrict out,
-        const float * __restrict inL,
-        const float * __restrict inR,
-        const float * __restrict inL_plus1line,
-        const float * __restrict inR_plus1line,
-        unsigned int n,
-        unsigned int pitch_byte)
+sse_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+    unsigned long n = p->n;
+
     const unsigned int block_size = 32;
     int i0;
 
