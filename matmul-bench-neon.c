@@ -1,6 +1,6 @@
 #include "matmul-bench-common.h"
 
-static NOINLINE void
+static inline void
 neon_(unsigned int i00,
       unsigned int j0,
       unsigned int k0,
@@ -13,6 +13,7 @@ neon_(unsigned int i00,
     int i0 = i00+bi+0;
 
     float *outp0 = &out[i0*n+j0];
+
 
 #define outp1 (outp0+n*1)
 
@@ -55,8 +56,12 @@ neon_(unsigned int i00,
 
     const float *inRp1 = (float*)&inR[k0*pitch_f32+j0];
 
+    //const float *__restrict inL_orig = inL;
+    const float *__restrict inR_orig = inRp1;
+
     const float *__restrict inL00_0 = (inL + (i0+0)*pitch_f32 + k0);
     const float *__restrict inL00_1 = (inL + (i0+1)*pitch_f32 + k0);
+    const float *__restrict inL_orig = inL00_1;
 
     __asm__ __volatile__ (".p2align 4\n\t"
                           "1:\n\t"
@@ -119,6 +124,58 @@ neon_(unsigned int i00,
                           "vmla.f32 %q[vout1_3], q11, d3[1]\n\t"
 
                           "bne 1b\n\t"
+
+                          "vld1.32 {d0,d1}, [%[inL00_0]:64]!\n\t"
+                          "vld1.32 {d2,d3}, [%[inL00_1]:64]!\n\t"
+			  "pld [%[inR_orig]]\n\t" 
+                          "vldmia %[inRp1], {q8-q11}\n\t"
+                          "add %[inRp1], %[inRp1], %[pitch_f32]\n\t"
+
+                          "vmla.f32 %q[vout0_0], q8, d0[0]\n\t"
+                          "vmla.f32 %q[vout1_0], q8, d2[0]\n\t"
+                          "vmla.f32 %q[vout0_1], q9, d0[0]\n\t"
+                          "vmla.f32 %q[vout1_1], q9, d2[0]\n\t"
+                          "vmla.f32 %q[vout0_2], q10, d0[0]\n\t"
+                          "vmla.f32 %q[vout1_2], q10, d2[0]\n\t"
+                          "vmla.f32 %q[vout0_3], q11, d0[0]\n\t"
+                          "vmla.f32 %q[vout1_3], q11, d2[0]\n\t"
+
+			  "pld [%[inR_orig], %[pld_offset]]\n\t"
+                          "vldmia %[inRp1], {q8-q11}\n\t"
+                          "add %[inRp1], %[inRp1], %[pitch_f32]\n\t"
+
+                          "vmla.f32 %q[vout0_0], q8, d0[1]\n\t"
+                          "vmla.f32 %q[vout1_0], q8, d2[1]\n\t"
+                          "vmla.f32 %q[vout0_1], q9, d0[1]\n\t"
+                          "vmla.f32 %q[vout1_1], q9, d2[1]\n\t"
+                          "vmla.f32 %q[vout0_2], q10, d0[1]\n\t"
+                          "vmla.f32 %q[vout1_2], q10, d2[1]\n\t"
+                          "vmla.f32 %q[vout0_3], q11, d0[1]\n\t"
+                          "vmla.f32 %q[vout1_3], q11, d2[1]\n\t"
+
+                          "vldmia %[inRp1], {q8-q11}\n\t"
+                          "add %[inRp1], %[inRp1], %[pitch_f32]\n\t"
+
+                          "vmla.f32 %q[vout0_0], q8, d1[0]\n\t"
+                          "vmla.f32 %q[vout1_0], q8, d3[0]\n\t"
+                          "vmla.f32 %q[vout0_1], q9, d1[0]\n\t"
+                          "vmla.f32 %q[vout1_1], q9, d3[0]\n\t"
+                          "pld [%[inR_orig], %[pitch_f32], lsl #1]\n\t"
+                          "vmla.f32 %q[vout0_2], q10, d1[0]\n\t"
+                          "vmla.f32 %q[vout1_2], q10, d3[0]\n\t"
+                          "vmla.f32 %q[vout0_3], q11, d1[0]\n\t"
+                          "vmla.f32 %q[vout1_3], q11, d3[0]\n\t"
+
+                          "vldmia %[inRp1], {q8-q11}\n\t"
+                          "vmla.f32 %q[vout0_0], q8, d1[1]\n\t"
+                          "vmla.f32 %q[vout1_0], q8, d3[1]\n\t"
+                          "vmla.f32 %q[vout0_1], q9, d1[1]\n\t"
+                          "vmla.f32 %q[vout1_1], q9, d3[1]\n\t"
+                          "pld [%[inL_orig]]\n\t"
+                          "vmla.f32 %q[vout0_2], q10, d1[1]\n\t"
+                          "vmla.f32 %q[vout1_2], q10, d3[1]\n\t"
+                          "vmla.f32 %q[vout0_3], q11, d1[1]\n\t"
+                          "vmla.f32 %q[vout1_3], q11, d3[1]\n\t"
                           :[inL00_0]"+r"(inL00_0), [inL00_1]"+r"(inL00_1),
                            [vout0_0]"+w"(vout0_0),
                            [vout0_1]"+w"(vout0_1),
@@ -128,10 +185,11 @@ neon_(unsigned int i00,
                            [vout1_1]"+w"(vout1_1),
                            [vout1_2]"+w"(vout1_2),
                            [vout1_3]"+w"(vout1_3),
-                           [inRp1]"+r"(inRp1)
-                          :[pitch_f32]"r"(pitch_f32*4), [inRp_end]"r"(inRp1 + 128*pitch_f32), [pld_offset]"r"(pitch_f32*4*4)
+                           [inRp1]"+r"(inRp1),
+                           [inR_orig]"+r"(inR_orig),
+                           [inL_orig]"+r"(inL_orig)
+                          :[pitch_f32]"r"(pitch_f32*4), [inRp_end]"r"(inRp1 + (128-4)*pitch_f32), [pld_offset]"r"(pitch_f32*4*4)
                           :"d0", "d1", "d2", "d3", "q8", "q9", "q10", "q11");
-
 
     outp_0[0] = vout0_0;
     outp_0[1] = vout0_1;
@@ -153,8 +211,7 @@ neon_run(float * __restrict out,
          unsigned int n,
          unsigned int pitch_byte)
 {
-    /* C=4x4x(2simd) register */
-    unsigned int block_size_i = 32;
+    unsigned int block_size_i = 64;
     unsigned int block_size_j = 16;
     unsigned int block_size_k = 128;
     int i00;
