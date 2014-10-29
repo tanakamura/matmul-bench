@@ -21,7 +21,7 @@ RM=rm2.exe
 WHICH=which2.exe
 
 else
-CFLAGS_COMMON= -std=gnu99 -Wall -O2 -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -fPIC -I$(CURDIR)
+CFLAGS_COMMON= -std=gnu99 -fopenmp -Wall -O2 -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -fPIC -I$(CURDIR)
 
 WHICH=which
 RM=/bin/rm
