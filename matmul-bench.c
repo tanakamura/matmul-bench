@@ -113,20 +113,27 @@ thread_func(void *ap)
             break;
         }
 
-        unsigned int max_i = pool->max_i;
-
         if (pool->fini) {
             break;
         }
 
+
+        unsigned int max_i = pool->max_i;
+        unsigned int i_block_size = pool->i_block_size;
+        matmul_bench_thread_func_t func = pool->func;
+
+        struct MatmulBenchParam *param = pool->param;;
+
         while (1) {
             unsigned int i;
 
-            i = __sync_fetch_and_add(current_i, 1);
+            i = __sync_fetch_and_add(current_i, i_block_size);
 
             if (i >= max_i) {
                 break;
             }
+
+            func(param, i, i+i_block_size);
         }
 
         a->fini = 1;
@@ -332,6 +339,58 @@ matmul_bench_fini(struct MatmulBench *mb)
     free(mb);
 }
 
+void
+matmul_bench_thread_call(struct MatmulBenchParam *param,
+                         unsigned int i_block_size,
+                         unsigned int max_i,
+                         matmul_bench_thread_func_t func)
+{
+    struct MatmulBench *mb = param->mb;
+    struct MatmulBenchThreadPool *pl = mb->threads;
+    int num_thread = pl->num_thread;
+
+    *(pl->current_i) = 0;
+    pl->fini = 0;
+    pl->i_block_size = i_block_size;
+    pl->max_i = max_i;
+    pl->func = func;
+    pl->param = param;
+
+    for (int ti=0; ti<num_thread; ti++) {
+        uint64_t ev_val = 1;
+        pl->args[ti].fini = 0;
+
+        wmb();
+
+        ssize_t s = write(pl->args[ti].from_master_ev, &ev_val, sizeof(ev_val));
+        if (s != sizeof(uint64_t)) {
+            perror("write");    /* ?? */
+        }
+    }
+
+    while (1) {
+        uint64_t ev_val;
+
+        ssize_t s = read(pl->to_master_ev, &ev_val, sizeof(ev_val));
+        if (s != sizeof(uint64_t)) {
+            perror("read");    /* ?? */
+        }
+
+        rmb();
+
+        int all_fini = 1;
+
+        for (int ti=0; ti<num_thread; ti++) {
+            all_fini &= pl->args[ti].fini;
+        }
+
+        if (all_fini) {
+            break;
+        }
+    }
+}
+
+
 
 struct MatmulBenchConfig *
 matmul_bench_config_init(struct MatmulBench *mb)
@@ -350,6 +409,7 @@ matmul_bench_config_init(struct MatmulBench *mb)
     c->size_min = 1;
     c->size_step = 1;
     c->max_time_sec = 2.0;
+    c->i_block_size = 2;
 
     return c;
 }
@@ -477,9 +537,9 @@ matmul_bench_run(struct MatmulBench *b,
     r->run_size_min = run_size_min;
     r->run_size_step = run_size_step;
 
-
     struct MatmulBenchParam *run_param = _aligned_malloc(sizeof(*run_param), 64);
-
+    run_param->mb = b;
+    run_param->i_block_size = c->i_block_size;
 
     while (1) {
         unsigned long n = cur_size;

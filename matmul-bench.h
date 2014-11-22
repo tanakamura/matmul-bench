@@ -29,6 +29,7 @@ struct MatmulBenchConfig {
     unsigned int mat_size;     /* 計測サイズ。0で自動(下みっつのパラメータでテストする) */
 
     unsigned int size_min;     /* テスト開始サイズ (これより大きくて、size_stepの倍数が実際のsize_minになる) */
+    unsigned int i_block_size; /* ループのブロックサイズ */
     unsigned int size_step;    /* サイズ増加 (これより大きく、かつ、全テストのsize_stepの最小公倍数が実際のstepになる) */
     double max_time_sec;        /* 処理時間がこれを超えたらやめる */
 };
@@ -58,6 +59,7 @@ __attribute__((aligned(64))) struct MatmulBenchParam {
     const float *inL_plus1line, *inR_plus1line;
     unsigned int n;
     unsigned int pitch_byte;
+    unsigned int i_block_size;
 };
 
 typedef void (*matmul_bench_test_run_t)(struct MatmulBenchParam *p);

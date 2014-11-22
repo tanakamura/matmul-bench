@@ -97,25 +97,30 @@ struct MatmulBenchThreadArg {
 #endif
 };
 
+typedef void (*matmul_bench_thread_func_t)(struct MatmulBenchParam *p,
+                                           unsigned long i_start,
+                                           unsigned long i_end);
+
 __attribute__((aligned(64))) struct MatmulBenchThreadPool {
     int to_master_ev;
 
-    unsigned int *current_i;
-    unsigned int fini;
+    int num_thread;
+    struct MatmulBenchThreadArg *args;
 
+    unsigned int *current_i;
+
+    unsigned int i_block_size;
     unsigned int max_i;
 
-    int num_thread;
+    struct MatmulBenchParam *param;
+    matmul_bench_thread_func_t func;
 
-    struct MatmulBenchThreadArg *args;
+    unsigned int fini;
 };
 
-void matmul_bench_thread_start(struct MatmulBench *mb);
-void matmul_bench_thread_stop(struct MatmulBench *mb);
-
-typedef void (*matmul_bench_thread_func_t)(struct MatmulBench *mb,
-                                           struct MatmulBenchParam *p,
-                                           unsigned int i);
-void matmul_bench_thread_call(struct MatmulBench *mb, int i_range, int i_block, matmul_bench_thread_func_t func);
+void matmul_bench_thread_call(struct MatmulBenchParam *param,
+                              unsigned int i_block_size,
+                              unsigned int max_i,
+                              matmul_bench_thread_func_t func);
 
 #endif

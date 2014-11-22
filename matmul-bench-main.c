@@ -22,6 +22,7 @@ usage(void)
     puts(" -n : matrix size (default : auto)");
     puts(" -t : set test list (default : all)");
     puts(" -i : num iter (default 3)");
+    puts(" -b : i block size (default 2)");
     puts(" -m : min size (default 64)");
     puts(" -s : size step (default 64)");
     puts(" -T : time limit [float sec] (default 0.5)");
@@ -58,6 +59,7 @@ main(int argc, char **argv)
     unsigned long size_step = 64;
     double timeout_sec = 0.5;
     int num_thread = 0;
+    unsigned int i_block_size = 2; 
 
     for (ai=1; ai<argc; ai++) {
         if (argv[ai][0] == '-') {
@@ -149,6 +151,15 @@ main(int argc, char **argv)
                 ai++;
                 break;
 
+            case 'b':
+                if (ai == argc-1) {
+                    usage();
+                    exit(1);
+                }
+                i_block_size = atoi(argv[ai+1]);
+                ai++;
+                break;
+
             default:
                 usage();
                 exit(1);
@@ -204,6 +215,7 @@ main(int argc, char **argv)
     config->size_min = size_min;
     config->size_step = size_step;
     config->max_time_sec = timeout_sec;
+    config->i_block_size = i_block_size;
 
     if (test_list) {
         int i;
@@ -263,7 +275,7 @@ main(int argc, char **argv)
                         }
                     }
 
-                    double flops = mat_size*(double)mat_size*mat_size*2/(min*1024.0*1024.0*1024.0);
+                    double flops = mat_size*(double)mat_size*mat_size*2/(min*1000.0*1000.0*1000.0);
 
                     fprintf(fp, "%f,", flops);
                 }
