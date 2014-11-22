@@ -13,8 +13,18 @@
 
 #ifdef ARCH_X86
 #include <cpuid.h>
+#define rmb() __asm__ __volatile__ ("":::"memory")
+#define wmb() __asm__ __volatile__ ("":::"memory")
 #endif
 
+#ifdef __arm__
+#define rmb() __asm__ __volatile__ ("":::"memory")
+#define wmb() __asm__ __volatile__ ("":::"memory")
+#endif
+
+#ifdef linux
+#include <sys/eventfd.h>
+#endif
 
 #ifdef _WIN32
 #include <windows.h>
@@ -78,6 +88,63 @@ matmul_bench_sec(void)
 #define srand srand48
 
 #endif
+
+static void *
+thread_func(void *ap)
+{
+    struct MatmulBenchThreadArg *a = (struct MatmulBenchThreadArg*)ap;
+    struct MatmulBench *bench = a->b;
+    struct MatmulBenchThreadPool *pool = bench->threads;
+    unsigned int *current_i = pool->current_i;
+
+    while (1) {
+        uint64_t ev_val;
+        ssize_t sz = read(a->from_master_ev, &ev_val, sizeof(uint64_t));
+
+        if (sz != 8) {
+            /* ?? */
+            perror("read");
+            break;
+        }
+
+        rmb();
+
+        if (pool->fini) {
+            break;
+        }
+
+        unsigned int max_i = pool->max_i;
+
+        if (pool->fini) {
+            break;
+        }
+
+        while (1) {
+            unsigned int i;
+
+            i = __sync_fetch_and_add(current_i, 1);
+
+            if (i >= max_i) {
+                break;
+            }
+        }
+
+        a->fini = 1;
+
+        wmb();
+
+        ev_val = 1;
+        sz = write(pool->to_master_ev, &ev_val, sizeof(uint64_t));
+
+        if (sz != 8) {
+            perror("write");
+            break;
+        }
+    }
+
+    return NULL;
+}
+
 
 struct MatmulBench *
 matmul_bench_init(unsigned int num_thread)
@@ -193,19 +260,38 @@ matmul_bench_init(unsigned int num_thread)
 
     for (int ti=0; ti<num_thread; ti++) {
         pl->args[ti].b = ret;
-        pl->args[ti].to_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
         pl->args[ti].from_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
 
         //pl->threads[ti] = (HANDLE)_beginthreadex(NULL, 0, &thread_pool_func, &pl->args[ti], NULL);
+        aa
     }
+
+    pl->to_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
 
 #else
     if (num_thread == 0) {
         num_thread = sysconf(_SC_NPROCESSORS_ONLN);
     }
 
-    ret->threads = malloc(sizeof(*ret->threads));
-    ret->threads->num_thread = num_thread;
+    struct MatmulBenchThreadPool *pl = malloc(sizeof(*pl));
+    ret->threads = pl;
+    pl->num_thread = num_thread;
+
+    pl->current_i = _aligned_malloc(64, 64);
+    pl->fini = 0;
+    pl->args = (struct MatmulBenchThreadArg*)_aligned_malloc(sizeof(struct MatmulBenchThreadArg) * num_thread, 64);
+
+    for (int ti=0; ti<num_thread; ti++) {
+        struct MatmulBenchThreadArg *a = &pl->args[ti];
+
+        a->b = ret;
+        a->from_master_ev = eventfd(0,0);
+
+        pthread_create(&a->thread, NULL,
+                       thread_func, a);
+    }
+
+    pl->to_master_ev = eventfd(0,0);
 
 #endif
 
@@ -220,12 +306,25 @@ matmul_bench_fini(struct MatmulBench *mb)
 {
     struct MatmulBenchThreadPool *pl = mb->threads;
     int num_thread = pl->num_thread;
+    uint64_t ev_val = 1;
+
+    pl->fini = 1;
+    wmb();
+
     for (int ti=0; ti<num_thread; ti++) {
-        CloseHandle(pl->args[ti].to_master_ev);
-        CloseHandle(pl->args[ti].from_master_ev);
+        write(pl->args[ti].from_master_ev, &ev_val, sizeof(ev_val));
     }
 
-    free(pl->threads);
+    for (int ti=0; ti<num_thread; ti++) {
+        pthread_join(pl->args[ti].thread, NULL);
+
+#ifdef _WIN32
+        CloseHandle(pl->args[ti].from_master_ev);
+#else
+        close(pl->args[ti].from_master_ev);
+#endif
+    }
+
     free(pl->args);
     _aligned_free(pl->current_i);
 

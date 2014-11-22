@@ -3,8 +3,10 @@ all: all2
 ANDROID_TOOLCHAIN=${HOME}/a/android-ndk-r10c/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin
 ANDROID_PLATFORM=${HOME}/a/android-ndk-r10c/platforms/android-21/arch-arm/usr
 
+WARN_FLAGS=-Wall -Werror=missing-prototypes -Werror=implicit-function-declaration
+
 ifeq ($(OS),Windows_NT)
-CFLAGS_COMMON= -std=gnu99 -Wall -O2 -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -I$(CURDIR)
+CFLAGS_COMMON= -std=gnu99 $(WARN_FLAGS) -O2 -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -I$(CURDIR)
 
 WHICH=$(shell which2 which2)
 
@@ -21,7 +23,7 @@ RM=rm2.exe
 WHICH=which2.exe
 
 else
-CFLAGS_COMMON= -std=gnu99 -Wall -O2 -fopenmp -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -fPIC -I$(CURDIR)
+CFLAGS_COMMON= -std=gnu99 $(WARN_FLAGS) -O2 -fopenmp -ffast-math -falign-loops -MD -fvisibility=hidden -D MATMUL_BENCH_BUILD_LIB -fPIC -I$(CURDIR)
 
 WHICH=which
 RM=/bin/rm

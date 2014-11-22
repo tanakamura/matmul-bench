@@ -145,14 +145,13 @@ neon_(unsigned int i00,
 }
 
 static void
-neon_run(float * __restrict out,
-         const float * __restrict inL,
-         const float * __restrict inR,
-         const float * __restrict inL_plus1line,
-         const float * __restrict inR_plus1line,
-         unsigned int n,
-         unsigned int pitch_byte)
+neon_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL_plus1line = p->inL_plus1line;
+    const float * __restrict inR_plus1line = p->inR_plus1line;
+    unsigned int n = p->n;
+    unsigned int pitch_byte = p->pitch_byte;
     /* C=4x4x(2simd) register */
     unsigned int block_size_i = 32;
     unsigned int block_size_j = 16;

@@ -40,6 +40,7 @@ struct MatmulBench;
 
 #else
 #include <malloc.h>
+#include <pthread.h>
 #define _aligned_malloc(sz,a) memalign(a,sz)
 #define _aligned_free(p) free(p)
 #endif
@@ -85,23 +86,26 @@ __attribute__((aligned(64)))
 struct MatmulBenchThreadArg {
     struct MatmulBench *b;
     int thread_id;
+    int fini;
 
-    HANDLE to_master_ev;
+#ifdef _WIN32
     HANDLE from_master_ev;
+    HANDLE thread;
+#else
+    int from_master_ev;
+    pthread_t thread;
+#endif
 };
 
 __attribute__((aligned(64))) struct MatmulBenchThreadPool {
+    int to_master_ev;
+
     unsigned int *current_i;
     unsigned int fini;
 
     unsigned int max_i;
 
     int num_thread;
-#ifdef _WIN32
-    HANDLE *threads;
-#else
-    pthread_t *threads;
-#endif
 
     struct MatmulBenchThreadArg *args;
 };
