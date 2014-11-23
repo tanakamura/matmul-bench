@@ -81,7 +81,6 @@ void matmulbench_init_vfpv4(struct MatmulBench *b, struct npr_varray *test_set);
 __attribute__((aligned(64)))
 struct MatmulBenchThreadArg {
     struct MatmulBench *b;
-    int thread_id;
     int fini;
 
 #ifdef _WIN32
@@ -98,7 +97,11 @@ typedef void (*matmul_bench_thread_func_t)(struct MatmulBenchParam *p,
                                            unsigned long i_end);
 
 __attribute__((aligned(64))) struct MatmulBenchThreadPool {
+#ifdef _WIN32
+    HANDLE to_master_ev;
+#else
     int to_master_ev;
+#endif
 
     int num_thread;
     struct MatmulBenchThreadArg *args;

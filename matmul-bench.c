@@ -4,6 +4,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <math.h>
 
@@ -51,7 +52,7 @@ matmul_bench_sec(void)
     return c.QuadPart/ (double)freq.QuadPart;
 }
 
-double
+static double
 drand(void)
 {
     unsigned int v;
@@ -63,6 +64,19 @@ drand(void)
 #define srand(v)
 
 
+static void
+notify_event(HANDLE ev)
+{
+    wmb();
+    SetEvent(ev);
+}
+
+static void
+wait_event(HANDLE ev)
+{
+    WaitForSingleObject(ev, INFINITE);
+    rmb();
+}
 
 
 #else
@@ -87,6 +101,31 @@ matmul_bench_sec(void)
 #define drand drand48
 #define srand srand48
 
+static void
+notify_event(int fd)
+{
+    uint64_t ev_val = 1;
+    wmb();
+    ssize_t s = write(fd, &ev_val, sizeof(ev_val));
+    if (s != sizeof(uint64_t)) {
+        perror("write");    /* ?? */
+    }
+}
+
+static void
+wait_event(int fd)
+{
+    uint64_t ev_val;
+
+    ssize_t s = read(fd, &ev_val, sizeof(ev_val));
+    if (s != sizeof(uint64_t)) {
+        perror("read");    /* ?? */
+    }
+
+    rmb();
+}
+
+
 #endif
 
 static void *
@@ -98,16 +137,7 @@ thread_func(void *ap)
     unsigned int *current_i = pool->current_i;
 
     while (1) {
-        uint64_t ev_val;
-        ssize_t sz = read(a->from_master_ev, &ev_val, sizeof(uint64_t));
-
-        if (sz != 8) {
-            /* ?? */
-            perror("read");
-            break;
-        }
-
-        rmb();
+        wait_event(a->from_master_ev);
 
         if (pool->fini) {
             break;
@@ -116,7 +146,6 @@ thread_func(void *ap)
         if (pool->fini) {
             break;
         }
-
 
         unsigned int max_i = pool->max_i;
         unsigned int i_block_size = pool->i_block_size;
@@ -141,20 +170,20 @@ thread_func(void *ap)
 
         a->fini = 1;
 
-        wmb();
-
-        ev_val = 1;
-        sz = write(pool->to_master_ev, &ev_val, sizeof(uint64_t));
-
-        if (sz != 8) {
-            perror("write");
-            break;
-        }
+        notify_event(pool->to_master_ev);
     }
 
     return NULL;
 }
 
+#ifdef _WIN32
+static unsigned __stdcall
+thread_func_w32(void *ap)
+{
+    thread_func(ap);
+    return 0;
+}
+#endif
 
 struct MatmulBench *
 matmul_bench_init(unsigned int num_thread)
@@ -257,52 +286,41 @@ matmul_bench_init(unsigned int num_thread)
 
         num_thread = si.dwNumberOfProcessors;
     }
-
-
-    struct MatmulBenchThreadPool *pl = malloc(sizeof(*pl));
-    ret->threads = pl;
-    pl->num_thread = num_thread;
-
-    pl->current_i = _aligned_malloc(64, 64);
-    pl->fini = 0;
-    pl->threads = malloc(sizeof(HANDLE) * num_thread);
-    pl->args = malloc(sizeof(struct MatmulBenchThreadArg) * num_thread);
-
-    for (int ti=0; ti<num_thread; ti++) {
-        pl->args[ti].b = ret;
-        pl->args[ti].from_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
-
-        //pl->threads[ti] = (HANDLE)_beginthreadex(NULL, 0, &thread_pool_func, &pl->args[ti], NULL);
-        aa
-    }
-
-    pl->to_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
-
 #else
     if (num_thread == 0) {
         num_thread = sysconf(_SC_NPROCESSORS_ONLN);
     }
+#endif
 
     struct MatmulBenchThreadPool *pl = malloc(sizeof(*pl));
     ret->threads = pl;
     pl->num_thread = num_thread;
-
     pl->current_i = _aligned_malloc(64, 64);
     pl->fini = 0;
     pl->args = (struct MatmulBenchThreadArg*)_aligned_malloc(sizeof(struct MatmulBenchThreadArg) * num_thread, 64);
 
     for (int ti=0; ti<num_thread; ti++) {
         struct MatmulBenchThreadArg *a = &pl->args[ti];
-
         a->b = ret;
+
+#ifdef _WIN32
+        unsigned int threadID;
+
+        a->from_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
+        a->thread = (HANDLE)_beginthreadex(NULL, 0, thread_func_w32, a, 0, &threadID);
+#else
         a->from_master_ev = eventfd(0,0);
 
         pthread_create(&a->thread, NULL,
                        thread_func, a);
+#endif
     }
 
-    pl->to_master_ev = eventfd(0,0);
 
+#ifdef _WIN32
+    pl->to_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
+#else
+    pl->to_master_ev = eventfd(0,0);
 #endif
 
     ret->num_test = test_set.nelem;
@@ -319,18 +337,18 @@ matmul_bench_fini(struct MatmulBench *mb)
     uint64_t ev_val = 1;
 
     pl->fini = 1;
-    wmb();
 
     for (int ti=0; ti<num_thread; ti++) {
-        write(pl->args[ti].from_master_ev, &ev_val, sizeof(ev_val));
+        notify_event(pl->args[ti].from_master_ev);
     }
 
     for (int ti=0; ti<num_thread; ti++) {
-        pthread_join(pl->args[ti].thread, NULL);
-
 #ifdef _WIN32
+        WaitForSingleObject(pl->args[ti].thread, INFINITE);
+        CloseHandle(pl->args[ti].thread);
         CloseHandle(pl->args[ti].from_master_ev);
 #else
+        pthread_join(pl->args[ti].thread, NULL);
         close(pl->args[ti].from_master_ev);
 #endif
     }
@@ -341,7 +359,6 @@ matmul_bench_fini(struct MatmulBench *mb)
     free(mb->test_set);
     free(mb);
 }
-
 void
 matmul_bench_thread_call(struct MatmulBenchParam *param,
                          unsigned int i_block_size,
@@ -360,26 +377,13 @@ matmul_bench_thread_call(struct MatmulBenchParam *param,
     pl->param = param;
 
     for (int ti=0; ti<num_thread; ti++) {
-        uint64_t ev_val = 1;
         pl->args[ti].fini = 0;
 
-        wmb();
-
-        ssize_t s = write(pl->args[ti].from_master_ev, &ev_val, sizeof(ev_val));
-        if (s != sizeof(uint64_t)) {
-            perror("write");    /* ?? */
-        }
+        notify_event(pl->args[ti].from_master_ev);
     }
 
     while (1) {
-        uint64_t ev_val;
-
-        ssize_t s = read(pl->to_master_ev, &ev_val, sizeof(ev_val));
-        if (s != sizeof(uint64_t)) {
-            perror("read");    /* ?? */
-        }
-
-        rmb();
+        wait_event(pl->to_master_ev);
 
         int all_fini = 1;
 
@@ -686,5 +690,5 @@ matmul_bench_result_fini(struct MatmulBench *b,
     free(r->results);
     free(r->test_map);
     free(r);
-}       
+}
 
