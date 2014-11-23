@@ -3,9 +3,6 @@
 #include <string.h>
 #include <float.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 #include "matmul-bench.h"
 
 enum run_type {
@@ -22,11 +19,12 @@ usage(void)
     puts(" -n : matrix size (default : auto)");
     puts(" -t : set test list (default : all)");
     puts(" -i : num iter (default 3)");
+    puts(" -b : i thread block size (default 1)");
     puts(" -m : min size (default 64)");
     puts(" -s : size step (default 64)");
     puts(" -T : time limit [float sec] (default 0.5)");
     puts(" -o : out csv");
-    puts(" -O : omp thread num");
+    puts(" -O : thread num");
 }
 
 static void
@@ -57,6 +55,8 @@ main(int argc, char **argv)
     unsigned long size_min = 64;
     unsigned long size_step = 64;
     double timeout_sec = 0.5;
+    int num_thread = 0;
+    unsigned int i_block_size = 1; 
 
     for (ai=1; ai<argc; ai++) {
         if (argv[ai][0] == '-') {
@@ -144,13 +144,18 @@ main(int argc, char **argv)
                     usage();
                     exit(1);
                 }
-#ifdef _OPENMP
-                omp_set_num_threads(atoi(argv[ai+1]));
-#endif
+                num_thread = atoi(argv[ai+1]);
                 ai++;
                 break;
-                
-                
+
+            case 'b':
+                if (ai == argc-1) {
+                    usage();
+                    exit(1);
+                }
+                i_block_size = atoi(argv[ai+1]);
+                ai++;
+                break;
 
             default:
                 usage();
@@ -164,7 +169,7 @@ main(int argc, char **argv)
         exit(0);
     }
 
-    struct MatmulBench *b = matmul_bench_init();
+    struct MatmulBench *b = matmul_bench_init(num_thread);
     if (run_type == DISPLAY_TEST_INFO) {
         int i;
         printf("<cpu feature =");
@@ -190,7 +195,7 @@ main(int argc, char **argv)
         printf(">\n");
 
         for (i=0; i<b->num_test; i++) {
-            printf("%15s: size_step=%ld\n", b->test_set[i].name, b->test_set[i].size_step);
+            printf("%15s: size_step=%d\n", b->test_set[i].name, b->test_set[i].size_step);
         }
 
         matmul_bench_fini(b);
@@ -207,6 +212,7 @@ main(int argc, char **argv)
     config->size_min = size_min;
     config->size_step = size_step;
     config->max_time_sec = timeout_sec;
+    config->i_block_size = i_block_size;
 
     if (test_list) {
         int i;
@@ -266,7 +272,7 @@ main(int argc, char **argv)
                         }
                     }
 
-                    double flops = mat_size*(double)mat_size*mat_size*2/(min*1024.0*1024.0*1024.0);
+                    double flops = mat_size*(double)mat_size*mat_size*2/(min*1000.0*1000.0*1000.0);
 
                     fprintf(fp, "%f,", flops);
                 }

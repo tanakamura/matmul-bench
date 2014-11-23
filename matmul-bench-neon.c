@@ -176,21 +176,21 @@ neon_(unsigned int i00,
 }
 
 static void
-neon_run(float * __restrict out,
-         const float * __restrict inL,
-         const float * __restrict inR,
-         const float * __restrict inL_plus1line,
-         const float * __restrict inR_plus1line,
-         unsigned int n,
-         unsigned int pitch_byte)
+neon_thread(struct MatmulBenchParam *p,
+            unsigned long i_start,
+            unsigned long i_end)
 {
-    unsigned int block_size_i = BLOCK_SIZE_I;
-    unsigned int block_size_j = BLOCK_SIZE_J;
-    unsigned int block_size_k = BLOCK_SIZE_K;
-    int i00;
+    float * __restrict out = p->out;
+    const float * __restrict inL_plus1line = p->inL_plus1line;
+    const float * __restrict inR_plus1line = p->inR_plus1line;
+    unsigned int n = p->n;
+    unsigned int pitch_byte = p->pitch_byte;
 
-#pragma omp parallel for schedule(dynamic)
-    for (i00=0; i00<n; i00+=block_size_i) {
+    unsigned int block_size_i = 32;
+    unsigned int block_size_j = 16;
+    unsigned int block_size_k = 128;
+
+    for (unsigned long i00=i_start; i00<i_end; i00+=block_size_i) {
         for (int j0=0; j0<n; j0+=block_size_j) {
             for (int k0=0; k0<n; k0+=block_size_k) {
                 for (int bi=0; bi<block_size_i; bi+=2) {
@@ -199,221 +199,19 @@ neon_run(float * __restrict out,
             }
         }
     }
-}
-
-static const struct MatmulBenchTest neon = MATMULBENCH_TEST_INITIALIZER("neon", neon_run, 128);
-
-
-#if 0 //xx
-
-
-#undef BLOCK_SIZE_I
-#undef BLOCK_SIZE_J
-#undef BLOCK_SIZE_K
-
-#define BLOCK_SIZE_I 48
-#define BLOCK_SIZE_J 16
-#define BLOCK_SIZE_K 128
-
-static inline void
-neon_4x3_(unsigned int i00,
-          unsigned int j0,
-          unsigned int k0,
-          unsigned int bi,
-          float *__restrict out,
-          const float *__restrict inL,
-          const float *__restrict inR,
-          unsigned int n, unsigned int pitch_f32)
-{
-    int i0 = i00+bi+0;
-
-    float *outp0 = &out[i0*n+j0];
-
-#define outp1 (outp0+n*1)
-#define outp2 (outp0+n*2)
-
-    float32x4_t *outp_0 = (float32x4_t*)outp0;
-    float32x4_t *outp_1 = (float32x4_t*)outp1;
-    float32x4_t *outp_2 = (float32x4_t*)outp2;
-
-    __builtin_prefetch(outp1+n*1);
-    __builtin_prefetch(outp1+n*2);
-
-    const float *inRp1 = (float*)&inR[k0*pitch_f32+j0];
-
-    //const float *__restrict inL_orig = inL;
-    const float *__restrict inR_orig = inRp1;
-
-    const float *__restrict inL00_0 = (inL + (i0+0)*pitch_f32 + k0);
-    const float *__restrict inL00_1 = (inL + (i0+1)*pitch_f32 + k0);
-    const float *__restrict inL00_2 = (inL + (i0+2)*pitch_f32 + k0);
-
-    const float *__restrict inL_next = inL00_2 + pitch_f32;
-
-#define K_LOOP_BODY(PLD_L0,PLD_L1,PLD_R0,PLD_R1,PLD_R2,PLD_R3,CMP)      \
-    ""                                                                  \
-        "vld1.32 {q0}, [%[inL00_0]:64]!\n\t"                            \
-        "vld1.32 {q1}, [%[inL00_1]:64]!\n\t"                            \
-        "vld1.32 {q2}, [%[inL00_2]:64]!\n\t"                            \
-                                                                        \
-        "pld [%[inL00_0], #64]\n\t"                            \
-        "pld [%[inL00_1], #64]\n\t"                            \
-        "pld [%[inL00_2], #64]\n\t"                            \
-                                                                        \
-        "pld [%[inRp1], %[pld_offset]]\n\t"                             \
-        "mov r4, %[inRp1]\n\t"                                             \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                                  \
-        "vmla.f32 q4, q3, d0[0]\n\t"                           \
-        "vmla.f32 q5, q3, d2[0]\n\t"                           \
-        "vmla.f32 q6, q3, d4[0]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q7, q3, d0[0]\n\t"                           \
-        "vmla.f32 q8, q3, d2[0]\n\t"                           \
-        "vmla.f32 q9, q3, d4[0]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q10, q3, d0[0]\n\t"                           \
-        "vmla.f32 q11, q3, d2[0]\n\t"                           \
-        "vmla.f32 q12, q3, d4[0]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q13, q3, d0[0]\n\t"                           \
-        "vmla.f32 q13, q3, d2[0]\n\t"                           \
-        "vmla.f32 q13, q3, d4[0]\n\t"                           \
-                                                                        \
-        "pld [%[inRp1], %[pld_offset]]\n\t"                             \
-        "add %[inRp1], %[inRp1], %[pitch_f32]\n\t"                      \
-        "mov r4, %[inRp1]\n\t"                                             \
-                                                                        \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                                  \
-        "vmla.f32 q4, q3, d0[1]\n\t"                           \
-        "vmla.f32 q5, q3, d2[1]\n\t"                           \
-        "vmla.f32 q6, q3, d4[1]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q7, q3, d0[1]\n\t"                           \
-        "vmla.f32 q8, q3, d2[1]\n\t"                           \
-        "vmla.f32 q9, q3, d4[1]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q10, q3, d0[1]\n\t"                           \
-        "vmla.f32 q11, q3, d2[1]\n\t"                           \
-        "vmla.f32 q12, q3, d4[1]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q13, q3, d0[1]\n\t"                           \
-        "vmla.f32 q14, q3, d2[1]\n\t"                           \
-        "vmla.f32 q15, q3, d4[1]\n\t"                           \
-                                                                        \
-        "pld [%[inRp1], %[pld_offset]]\n\t"                             \
-        "add %[inRp1], %[inRp1], %[pitch_f32]\n\t"                      \
-        "mov r4, %[inRp1]\n\t"                                             \
-                                                                        \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                                  \
-        "vmla.f32 q4, q3, d1[0]\n\t"                           \
-        "vmla.f32 q5, q3, d3[0]\n\t"                           \
-        "vmla.f32 q6, q3, d5[0]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q7, q3, d1[0]\n\t"                           \
-        "vmla.f32 q8, q3, d3[0]\n\t"                           \
-        "vmla.f32 q9, q3, d5[0]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q10, q3, d1[0]\n\t"                           \
-        "vmla.f32 q11, q3, d3[0]\n\t"                           \
-        "vmla.f32 q12, q3, d5[0]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q13, q3, d1[0]\n\t"                           \
-        "vmla.f32 q14, q3, d3[0]\n\t"                           \
-        "vmla.f32 q15, q3, d5[0]\n\t"                           \
-                                                                        \
-        "pld [%[inRp1], %[pld_offset]]\n\t"                             \
-        "add %[inRp1], %[inRp1], %[pitch_f32]\n\t"                      \
-        "mov r4, %[inRp1]\n\t"                                             \
-                                                                        \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                                  \
-        "vmla.f32 q4, q3, d1[1]\n\t"                           \
-        "vmla.f32 q5, q3, d3[1]\n\t"                           \
-        "vmla.f32 q6, q3, d5[1]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q7, q3, d1[1]\n\t"                                    \
-        "vmla.f32 q8, q3, d3[1]\n\t"                           \
-        "vmla.f32 q9, q3, d5[1]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q10, q3, d1[1]\n\t"                           \
-        "vmla.f32 q11, q3, d3[1]\n\t"                           \
-        "vmla.f32 q12, q3, d5[1]\n\t"                           \
-        "vld1.32 {d6,d7}, [r4]!\n\t"                             \
-        "vmla.f32 q13, q3, d1[1]\n\t"                           \
-        "vmla.f32 q14, q3, d3[1]\n\t"                           \
-        "vmla.f32 q15, q3, d5[1]\n\t"                           \
-                                                                        \
-        "pld [%[inRp1], %[pld_offset]]\n\t"                             \
-        "add %[inRp1], %[inRp1], %[pitch_f32]\n\t"                      \
-                                                                        \
-        CMP                                                             \
-
-    __asm__ __volatile__ ("vmov.f32 q4, #0.0\n\t" /* vout0_0 */
-                          "vmov.f32 q5, #0.0\n\t" /* vout1_0 */
-                          "vmov.f32 q6, #0.0\n\t" /* vout2_0 */
-                          "vmov.f32 q7, #0.0\n\t"
-                          "vmov.f32 q8, #0.0\n\t"
-                          "vmov.f32 q9, #0.0\n\t"
-                          "vmov.f32 q10, #0.0\n\t"
-                          "vmov.f32 q11, #0.0\n\t"
-                          "vmov.f32 q12, #0.0\n\t"
-                          "vmov.f32 q13, #0.0\n\t"
-                          "vmov.f32 q14, #0.0\n\t"
-                          "vmov.f32 q15, #0.0\n\t" /* vout2_3 */
-                          ".p2align 3\n\t"
-                          "1:\n\t"
-                          K_LOOP_BODY("pld [%[inL00_0], #64]\n\t",
-                                      "pld [%[inL00_1], #64]\n\t",
-                                      "pld [%[inRp1], %[pld_offset]]\n\t",
-                                      "pld [%[inRp1], %[pld_offset]]\n\t",
-                                      "pld [%[inRp1], %[pld_offset]]\n\t",
-                                      "pld [%[inRp1], %[pld_offset]]\n\t",
-                                      "cmp %[inRp1], %[inRp_end]\n\t")
-
-                          "bne 1b\n\t"
-
-                          "vstmia %[outp_0], {q4-q7}\n\t"
-                          "vstmia %[outp_1], {q8-q11}\n\t"
-                          "vstmia %[outp_2], {q12-q15}\n\t"
-
-                          :[inL00_0]"+r"(inL00_0), [inL00_1]"+r"(inL00_1), [inL00_2]"+r"(inL00_2),
-                           [inRp1]"+r"(inRp1)
-                          :[pitch_f32]"r"(pitch_f32*4),
-                           [inRp_end]"r"(inRp1 + (BLOCK_SIZE_K)*pitch_f32),
-                           [outp_0]"r"(outp_0),
-                           [outp_1]"r"(outp_1),
-                           [outp_2]"r"(outp_2),
-                           [pld_offset]"r"(pitch_f32*4*4)
-                          :"q0", "q1", "q2", "q3","q4","q5","q6","q7","q8","q9","q10","q11","q12","q13","q14","q15", "r4");
+    
 }
 
 static void
-neon_4x3_run(float * __restrict out,
-             const float * __restrict inL,
-             const float * __restrict inR,
-             const float * __restrict inL_plus1line,
-             const float * __restrict inR_plus1line,
-             unsigned int n,
-             unsigned int pitch_byte)
+neon_run(struct MatmulBenchParam *p)
 {
-    unsigned int block_size_i = BLOCK_SIZE_I;
-    unsigned int block_size_j = BLOCK_SIZE_J;
-    unsigned int block_size_k = BLOCK_SIZE_K;
-    int i00;
+    unsigned int block_size_i = 32;
 
-#pragma omp parallel for schedule(dynamic)
-    for (i00=0; i00<n; i00+=block_size_i) {
-        for (int j0=0; j0<n; j0+=block_size_j) {
-            for (int k0=0; k0<n; k0+=block_size_k) {
-                for (int bi=0; bi<block_size_i; bi+=3) {
-                    neon_4x3_(i00, j0, k0, bi, out, inL_plus1line, inR_plus1line, n, pitch_byte/4);
-                }
-            }
-        }
-    }
+    matmul_bench_thread_call(p, p->i_block_size*block_size_i, p->n, neon_thread);
+
 }
-static const struct MatmulBenchTest neon_4x3 = MATMULBENCH_TEST_INITIALIZER("neon_4x3", neon_4x3_run, 384);
-#endif
 
+static const struct MatmulBenchTest neon = MATMULBENCH_TEST_INITIALIZER("neon", neon_run, 128);
 
 void
 matmulbench_init_neon(struct MatmulBench *b, struct npr_varray *test_set)

@@ -26,10 +26,11 @@ struct MatmulBenchConfig {
     int iter;                   /* テスト回数 */
 
     int *enable;                /* test_set と対応 0:やらない 0以外:やる */
-    unsigned long mat_size;     /* 計測サイズ。0で自動(下みっつのパラメータでテストする) */
+    unsigned int mat_size;     /* 計測サイズ。0で自動(下みっつのパラメータでテストする) */
 
-    unsigned long size_min;     /* テスト開始サイズ (これより大きくて、size_stepの倍数が実際のsize_minになる) */
-    unsigned long size_step;    /* サイズ増加 (これより大きく、かつ、全テストのsize_stepの最小公倍数が実際のstepになる) */
+    unsigned int size_min;     /* テスト開始サイズ (これより大きくて、size_stepの倍数が実際のsize_minになる) */
+    unsigned int i_block_size; /* ループのブロックサイズ */
+    unsigned int size_step;    /* サイズ増加 (これより大きく、かつ、全テストのsize_stepの最小公倍数が実際のstepになる) */
     double max_time_sec;        /* 処理時間がこれを超えたらやめる */
 };
 
@@ -45,27 +46,29 @@ struct MatmulBenchResult {
     int num_run_max;
 
     unsigned int num_run;       /* 最大run数 */
-    unsigned long run_size_step; /* config::size_stepを全テストの最小公倍数になるようにテストした値 */
-    unsigned long run_size_min; /* config::size_minをrun_size_stepの倍になるように調整した値 */
+    unsigned int run_size_step; /* config::size_stepを全テストの最小公倍数になるようにテストした値 */
+    unsigned int run_size_min; /* config::size_minをrun_size_stepの倍になるように調整した値 */
 
     struct MatmulBenchTestResult *results;
 };
 
-typedef void (*matmul_bench_test_run_t)(float * __restrict out,
-                                        const float * __restrict inL,
-                                        const float * __restrict inR,
+__attribute__((aligned(64))) struct MatmulBenchParam {
+    struct MatmulBench *mb;
+    float * out;
+    const float *inL, *inR;
+    const float *inL_plus1line, *inR_plus1line;
+    unsigned int n;
+    unsigned int pitch_byte;
+    unsigned int i_block_size;
+};
 
-                                        const float * __restrict inL_plus1line,
-                                        const float * __restrict inR_plus1line,
-                                        
-                                        unsigned int n,
-                                        unsigned int pitch_byte);
+typedef void (*matmul_bench_test_run_t)(struct MatmulBenchParam *p);
 
 struct MatmulBenchTest {
     const char *name;
     matmul_bench_test_run_t run;
 
-    unsigned long size_step;
+    unsigned int size_step;
 };
 
 typedef void (*matmul_bench_finish_callback_t)(const struct MatmulBenchTest *test,
@@ -84,11 +87,13 @@ struct MatmulBench {
     int num_test;
     struct MatmulBenchTest *test_set;
     int feature_bits;
+    struct MatmulBenchThreadPool *threads;
 };
 
 struct MatmulBenchResult;
 
-MATMUL_BENCH_EXPORT struct MatmulBench *matmul_bench_init(void);
+/* 0 でシステムのスレッド数 */
+MATMUL_BENCH_EXPORT struct MatmulBench *matmul_bench_init(unsigned int num_thread);
 MATMUL_BENCH_EXPORT void matmul_bench_fini(struct MatmulBench *mb);
 
 /*

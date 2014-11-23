@@ -1,16 +1,14 @@
 #include "matmul-bench-common.h"
 
 static void
-simple_run(float * __restrict out,
-           const float * __restrict inL,
-           const float * __restrict inR,
-           
-           const float * __restrict inL_plus1line,
-           const float * __restrict inR_plus1line,
-           
-           unsigned int n,
-           unsigned int pitch_byte)
+simple_run(struct MatmulBenchParam *p)
 {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+
+    unsigned int n = p->n;
+
     for (int i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             float v = 0;
@@ -23,23 +21,21 @@ simple_run(float * __restrict out,
     }
 }
 
+
 static void
-simple_omp_run(float * __restrict out,
-               const float * __restrict inL,
-               const float * __restrict inR,
-           
-               const float * __restrict inL_plus1line,
-               const float * __restrict inR_plus1line,
-           
-               unsigned int n,
-               unsigned int pitch_byte)
+thread_func(struct MatmulBenchParam *p,
+            unsigned long i_start,
+            unsigned long i_end)
 {
-    int i;
-#pragma omp parallel for
-    for (i=0; i<n; i++) {
-        for (int j=0; j<n; j++) {
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+    unsigned long n = p->n;
+
+    for (unsigned long i=i_start; i<i_end; i++) {
+        for (unsigned long j=0; j<n; j++) {
             float v = 0;
-            for (int k=0; k<n; k++) {
+            for (unsigned long k=0; k<n; k++) {
                 v += inL[i*n+k] * inR[k*n+j];
             }
 
@@ -49,27 +45,23 @@ simple_omp_run(float * __restrict out,
 }
 
 static void
-outer_run(float * __restrict out,
-          const float * __restrict inL,
-          const float * __restrict inR,
-           
-          const float * __restrict inL_plus1line,
-          const float * __restrict inR_plus1line,
-          
-          unsigned int n,
-          unsigned int pitch_byte)
+simple_thread_run(struct MatmulBenchParam *p)
 {
-    int i;
+    matmul_bench_thread_call(p, p->i_block_size, p->n, thread_func);
+}
 
-#pragma omp parallel for
-    for (i=0; i<n; i++) {
-        for (int j=0; j<n; j++) {
-            out[i*n+j] = 0;
-        }
-    }
 
-#pragma omp parallel for
-    for (i=0; i<n; i++) {
+static void
+outer_func(struct MatmulBenchParam *p,
+           unsigned long i_start,
+           unsigned long i_end)
+{
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+    float * __restrict out = p->out;
+    unsigned long n = p->n;
+
+    for (unsigned long i=i_start; i<i_end; i++) {
         for (int k=0; k<n; k++) {
             float lik = inL[i*n+k];
 
@@ -81,14 +73,32 @@ outer_run(float * __restrict out,
 }
 
 
+static void
+outer_run(struct MatmulBenchParam *p)
+{
+    float * __restrict out = p->out;
+
+    unsigned int n = p->n;
+    int i;
+
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+    matmul_bench_thread_call(p, p->i_block_size, p->n, outer_func);
+}
+
+
 static const struct MatmulBenchTest simple = MATMULBENCH_TEST_INITIALIZER("simple", simple_run, 1);
-static const struct MatmulBenchTest simple_omp = MATMULBENCH_TEST_INITIALIZER("simple_omp", simple_omp_run, 1);
-static const struct MatmulBenchTest outer = MATMULBENCH_TEST_INITIALIZER("outer_omp", outer_run, 1);
+static const struct MatmulBenchTest simple_thread = MATMULBENCH_TEST_INITIALIZER("simple_thread", simple_thread_run, 1);
+static const struct MatmulBenchTest outer = MATMULBENCH_TEST_INITIALIZER("outer_thread", outer_run, 1);
 
 void
 matmulbench_init_simple_c(struct MatmulBench *b, struct npr_varray *test_set)
 {
     VA_PUSH(struct MatmulBenchTest, test_set, simple);
-    VA_PUSH(struct MatmulBenchTest, test_set, simple_omp);
+    VA_PUSH(struct MatmulBenchTest, test_set, simple_thread);
     VA_PUSH(struct MatmulBenchTest, test_set, outer);
 }

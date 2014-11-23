@@ -14,10 +14,6 @@
 
 struct MatmulBench;
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 #ifdef __GNUC__
 #define NOINLINE __attribute__((noinline,noclone))
 #else
@@ -40,6 +36,7 @@ struct MatmulBench;
 
 #else
 #include <malloc.h>
+#include <pthread.h>
 #define _aligned_malloc(sz,a) memalign(a,sz)
 #define _aligned_free(p) free(p)
 #endif
@@ -74,5 +71,52 @@ void matmulbench_init_vfpv4(struct MatmulBench *b, struct npr_varray *test_set);
 
 #define MATMULBENCH_TEST_INITIALIZER(name,run,size_step) {name, run, size_step}
 #define CEIL_DIV(a,b) (((a)+((b)-1))/(b))
+
+#ifdef _WIN32
+#define W32_ALIGN_ARG_POINTER __attribute__ ((force_align_arg_pointer))
+#else
+#define W32_ALIGN_ARG_POINTER
+#endif
+
+__attribute__((aligned(64)))
+struct MatmulBenchThreadArg {
+    struct MatmulBench *b;
+    int thread_id;
+    int fini;
+
+#ifdef _WIN32
+    HANDLE from_master_ev;
+    HANDLE thread;
+#else
+    int from_master_ev;
+    pthread_t thread;
+#endif
+};
+
+typedef void (*matmul_bench_thread_func_t)(struct MatmulBenchParam *p,
+                                           unsigned long i_start,
+                                           unsigned long i_end);
+
+__attribute__((aligned(64))) struct MatmulBenchThreadPool {
+    int to_master_ev;
+
+    int num_thread;
+    struct MatmulBenchThreadArg *args;
+
+    unsigned int *current_i;
+
+    unsigned int i_block_size;
+    unsigned int max_i;
+
+    struct MatmulBenchParam *param;
+    matmul_bench_thread_func_t func;
+
+    unsigned int fini;
+};
+
+void matmul_bench_thread_call(struct MatmulBenchParam *param,
+                              unsigned int i_block_size,
+                              unsigned int max_i,
+                              matmul_bench_thread_func_t func);
 
 #endif

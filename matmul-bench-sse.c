@@ -3,7 +3,7 @@
 
 #include "matmul-bench-common.h"
 
-static NOINLINE void
+static NOINLINE W32_ALIGN_ARG_POINTER void
 sse_(unsigned long i0,
      unsigned long j0,
      unsigned long k0,
@@ -64,24 +64,21 @@ sse_(unsigned long i0,
     outp4[5] = _mm_add_ps(outp4[5], vout5);
     outp4[6] = _mm_add_ps(outp4[6], vout6);
     outp4[7] = _mm_add_ps(outp4[7], vout7);
-    
 }
 
-
 static void
-sse_run(float * __restrict out,
-        const float * __restrict inL,
-        const float * __restrict inR,
-        const float * __restrict inL_plus1line,
-        const float * __restrict inR_plus1line,
-        unsigned int n,
-        unsigned int pitch_byte)
+sse_thread_func(struct MatmulBenchParam *p,
+                unsigned long i_start,
+                unsigned long i_end)
 {
-    const unsigned int block_size = 32;
-    int i0;
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+    unsigned long n = p->n;
 
-#pragma omp parallel for schedule(dynamic)
-    for (i0=0; i0<n; i0+=block_size) {
+    const unsigned int block_size = 32;
+
+    for (unsigned long i0=i_start; i0<i_end; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
             for (int bi=0; bi<block_size; bi++) {
                 for (int bj=0; bj<block_size; bj+=4) {
@@ -98,6 +95,15 @@ sse_run(float * __restrict out,
             }
         }
     }
+}
+
+
+static void
+sse_run(struct MatmulBenchParam *p)
+{
+    const unsigned int block_size = 32;
+
+    matmul_bench_thread_call(p, p->i_block_size*block_size, p->n, sse_thread_func);
 }
 
 static const struct MatmulBenchTest sse = MATMULBENCH_TEST_INITIALIZER("sse", sse_run, 32);
