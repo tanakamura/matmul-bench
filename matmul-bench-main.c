@@ -19,7 +19,7 @@ usage(void)
     puts(" -n : matrix size (default : auto)");
     puts(" -t : set test list (default : all)");
     puts(" -i : num iter (default 3)");
-    puts(" -b : i block size (default 2)");
+    puts(" -b : i thread block size (default 1)");
     puts(" -m : min size (default 64)");
     puts(" -s : size step (default 64)");
     puts(" -T : time limit [float sec] (default 0.5)");
@@ -56,7 +56,7 @@ main(int argc, char **argv)
     unsigned long size_step = 64;
     double timeout_sec = 0.5;
     int num_thread = 0;
-    unsigned int i_block_size = 2; 
+    unsigned int i_block_size = 1; 
 
     for (ai=1; ai<argc; ai++) {
         if (argv[ai][0] == '-') {

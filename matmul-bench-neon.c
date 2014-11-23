@@ -145,21 +145,21 @@ neon_(unsigned int i00,
 }
 
 static void
-neon_run(struct MatmulBenchParam *p)
+neon_thread(struct MatmulBenchParam *p,
+            unsigned long i_start,
+            unsigned long i_end)
 {
     float * __restrict out = p->out;
     const float * __restrict inL_plus1line = p->inL_plus1line;
     const float * __restrict inR_plus1line = p->inR_plus1line;
     unsigned int n = p->n;
     unsigned int pitch_byte = p->pitch_byte;
-    /* C=4x4x(2simd) register */
+
     unsigned int block_size_i = 32;
     unsigned int block_size_j = 16;
     unsigned int block_size_k = 128;
-    int i00;
 
-#pragma omp parallel for schedule(dynamic)
-    for (i00=0; i00<n; i00+=block_size_i) {
+    for (unsigned long i00=i_start; i00<i_end; i00+=block_size_i) {
         for (int j0=0; j0<n; j0+=block_size_j) {
             for (int k0=0; k0<n; k0+=block_size_k) {
                 for (int bi=0; bi<block_size_i; bi+=2) {
@@ -168,6 +168,16 @@ neon_run(struct MatmulBenchParam *p)
             }
         }
     }
+    
+}
+
+static void
+neon_run(struct MatmulBenchParam *p)
+{
+    unsigned int block_size_i = 32;
+
+    matmul_bench_thread_call(p, p->i_block_size*block_size_i, p->n, neon_thread);
+
 }
 
 static const struct MatmulBenchTest neon = MATMULBENCH_TEST_INITIALIZER("neon", neon_run, 128);

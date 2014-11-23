@@ -14,10 +14,6 @@
 
 struct MatmulBench;
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 #ifdef __GNUC__
 #define NOINLINE __attribute__((noinline,noclone))
 #else

@@ -412,7 +412,7 @@ matmul_bench_config_init(struct MatmulBench *mb)
     c->size_min = 1;
     c->size_step = 1;
     c->max_time_sec = 2.0;
-    c->i_block_size = 2;
+    c->i_block_size = 1;
 
     return c;
 }
