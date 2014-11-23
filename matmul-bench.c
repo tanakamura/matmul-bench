@@ -353,7 +353,7 @@ matmul_bench_fini(struct MatmulBench *mb)
 #endif
     }
 
-    free(pl->args);
+    _aligned_free(pl->args);
     _aligned_free(pl->current_i);
 
     free(mb->test_set);
