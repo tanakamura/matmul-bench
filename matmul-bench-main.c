@@ -3,9 +3,6 @@
 #include <string.h>
 #include <float.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 #include "matmul-bench.h"
 
 enum run_type {
@@ -27,7 +24,7 @@ usage(void)
     puts(" -s : size step (default 64)");
     puts(" -T : time limit [float sec] (default 0.5)");
     puts(" -o : out csv");
-    puts(" -O : omp thread num");
+    puts(" -O : thread num");
 }
 
 static void

@@ -5,25 +5,16 @@ typedef float v4sf __attribute__((vector_size (16)));
 typedef float v8sf __attribute__((vector_size (32)));
 
 static void
-gccvec4_run(struct MatmulBenchParam *p)
+gccvec4_thread_func(struct MatmulBenchParam *p,
+                    unsigned long i_start,
+                    unsigned long i_end)
 {
     float * __restrict out = p->out;
     const float * __restrict inL = p->inL;
     const float * __restrict inR = p->inR;
+    unsigned long n = p->n;
 
-    unsigned int n = p->n;
-
-    int i;
-
-#pragma omp parallel for
-    for (i=0; i<n; i++) {
-        for (int j=0; j<n; j++) {
-            out[i*n+j] = 0;
-        }
-    }
-
-#pragma omp parallel for
-    for (i=0; i<n; i++) {
+    for (unsigned long i=i_start; i<i_end; i++) {
         for (int k=0; k<n; k++) {
             float lik = inL[i*n+k];
             v4sf vlik = {lik,lik,lik,lik};
@@ -36,25 +27,33 @@ gccvec4_run(struct MatmulBenchParam *p)
 }
 
 static void
-gccvec8_run(struct MatmulBenchParam *p)
+gccvec4_run(struct MatmulBenchParam *p)
 {
     float * __restrict out = p->out;
-    const float * __restrict inL = p->inL;
-    const float * __restrict inR = p->inR;
 
     unsigned int n = p->n;
 
     int i;
 
-#pragma omp parallel for
     for (i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             out[i*n+j] = 0;
         }
     }
 
-#pragma omp parallel for
-    for (i=0; i<n; i++) {
+    matmul_bench_thread_call(p, p->i_block_size, p->n, gccvec4_thread_func);
+}
+static void
+gccvec8_thread_func(struct MatmulBenchParam *p,
+                    unsigned long i_start,
+                    unsigned long i_end)
+{
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+    unsigned long n = p->n;
+
+    for (unsigned long i=i_start; i<i_end; i++) {
         for (int k=0; k<n; k++) {
             float lik = inL[i*n+k];
             v8sf vlik = {lik,lik,lik,lik,
@@ -66,30 +65,39 @@ gccvec8_run(struct MatmulBenchParam *p)
         }
     }
 }
-#endif
 
 static void
-block_run(struct MatmulBenchParam *p)
+gccvec8_run(struct MatmulBenchParam *p)
 {
     float * __restrict out = p->out;
-    const float * __restrict inL = p->inL;
-    const float * __restrict inR = p->inR;
 
     unsigned int n = p->n;
 
-    unsigned int block_size = 32;
-    int i0, i;
+    int i;
 
-#pragma omp parallel for
     for (i=0; i<n; i++) {
         for (int j=0; j<n; j++) {
             out[i*n+j] = 0;
         }
     }
 
+    matmul_bench_thread_call(p, p->i_block_size, p->n, gccvec8_thread_func);
+}
+#endif
 
-#pragma omp parallel for
-    for (i0=0; i0<n; i0+=block_size) {
+static void
+block_thread_func(struct MatmulBenchParam *p,
+                  unsigned long i_start,
+                  unsigned long i_end)
+{
+    unsigned long i0;
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+    unsigned int n = p->n;
+    unsigned int block_size = 32;
+
+    for (i0=i_start; i0<i_end; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
             for (int k0=0; k0<n; k0+=block_size) {
                 for (int bi=0; bi<block_size; bi++) {
@@ -109,24 +117,41 @@ block_run(struct MatmulBenchParam *p)
             }
         }
     }
+
 }
 
+static void
+block_run(struct MatmulBenchParam *p)
+{
+    float * __restrict out = p->out;
 
+    unsigned int n = p->n;
+    unsigned int block_size = 32;
+
+    int i;
+
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+    matmul_bench_thread_call(p, p->i_block_size*block_size, p->n, block_thread_func);
+}
 
 static void
-block_unroll_run(struct MatmulBenchParam *p)
+block_unroll_thread_func(struct MatmulBenchParam *p,
+                         unsigned long i_start,
+                         unsigned long i_end)
 {
+    unsigned long i0;
     float * __restrict out = p->out;
     const float * __restrict inL = p->inL;
     const float * __restrict inR = p->inR;
-
     unsigned int n = p->n;
-
     unsigned int block_size = 16;
-    int i0;
 
-#pragma omp parallel for schedule(dynamic)
-    for (i0=0; i0<n; i0+=block_size) {
+    for (i0=i_start; i0<i_end; i0+=block_size) {
         for (int j0=0; j0<n; j0+=block_size) {
             for (int bi=0; bi<block_size; bi++) {
                 for (int bj=0; bj<block_size; bj++) {
@@ -176,6 +201,16 @@ block_unroll_run(struct MatmulBenchParam *p)
             }
         }
     }
+    
+}
+
+
+static void
+block_unroll_run(struct MatmulBenchParam *p)
+{
+    unsigned int block_size = 16;
+
+    matmul_bench_thread_call(p, p->i_block_size*block_size, p->n, block_unroll_thread_func);
 }
 
 

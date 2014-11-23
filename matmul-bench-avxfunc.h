@@ -157,17 +157,17 @@ CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
 
 }
 
-
 static void
-AVX_FUNC_NAME(struct MatmulBenchParam *p)
+CONCAT(AVX_FUNC_NAME,thread)(struct MatmulBenchParam *p,
+                             unsigned long i_start,
+                             unsigned long i_end)
 {
     float * __restrict out = p->out;
     unsigned long n = p->n;
-
     const float * __restrict inL_plus1line = p->inL_plus1line;
     const float * __restrict inR_plus1line = p->inR_plus1line;
-    unsigned int pitch_byte = p->pitch_byte;
 
+    unsigned long pitch_byte = p->pitch_byte;
 
 #ifdef MAT_4x3
     unsigned long block_size_i = 48;
@@ -177,10 +177,7 @@ AVX_FUNC_NAME(struct MatmulBenchParam *p)
     unsigned long block_size_j = 32;
     unsigned long block_size_k = 128;
 
-    long i00;
-
-#pragma omp parallel for schedule(static)
-    for (i00=0; i00<n; i00+=block_size_i) {
+    for (unsigned long i00=i_start; i00<i_end; i00+=block_size_i) {
         for (long j0=0; j0<n; j0+=block_size_j) {
             for (long k0=0; k0<n; k0+=block_size_k) {
 #ifdef MAT_4x3
@@ -197,6 +194,20 @@ AVX_FUNC_NAME(struct MatmulBenchParam *p)
             }
         }
     }
+}
+
+
+
+static void
+AVX_FUNC_NAME(struct MatmulBenchParam *p)
+{
+#ifdef MAT_4x3
+    unsigned long block_size_i = 48;
+#else
+    unsigned long block_size_i = 64;
+#endif
+
+    matmul_bench_thread_call(p, p->i_block_size*block_size_i, p->n, CONCAT(AVX_FUNC_NAME,thread));
 }
 
 #undef AVX_OP

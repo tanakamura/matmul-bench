@@ -18,8 +18,8 @@
 #endif
 
 #ifdef __arm__
-#define rmb() __asm__ __volatile__ ("":::"memory")
-#define wmb() __asm__ __volatile__ ("":::"memory")
+#define rmb() __asm__ __volatile__ ("dsb":::"memory")
+#define wmb() __asm__ __volatile__ ("dsb st":::"memory")
 #endif
 
 #ifdef linux
@@ -125,7 +125,7 @@ thread_func(void *ap)
         struct MatmulBenchParam *param = pool->param;;
 
         while (1) {
-            unsigned int i;
+            unsigned long i;
 
             i = __sync_fetch_and_add(current_i, i_block_size);
 
@@ -133,7 +133,10 @@ thread_func(void *ap)
                 break;
             }
 
-            func(param, i, i+i_block_size);
+            unsigned long end = i+i_block_size;
+            end = (end<max_i)?end:max_i;
+
+            func(param, i, end);
         }
 
         a->fini = 1;
