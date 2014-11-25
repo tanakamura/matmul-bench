@@ -74,7 +74,8 @@ struct MatmulBenchTest {
 typedef void (*matmul_bench_finish_callback_t)(const struct MatmulBenchTest *test,
                                                double sec,
                                                unsigned int iter,
-                                               unsigned long mat_size);
+                                               unsigned long mat_size,
+                                               void *ptr);
 
 #define MATMULBENCH_FEATURE_SSE (1<<0)
 #define MATMULBENCH_FEATURE_AVX (1<<1)
@@ -112,7 +113,8 @@ MATMUL_BENCH_EXPORT int matmul_bench_config_disable_test(struct MatmulBench *mb,
 
 MATMUL_BENCH_EXPORT struct MatmulBenchResult *matmul_bench_run(struct MatmulBench *mb,
                                                                struct MatmulBenchConfig *config,
-                                                               matmul_bench_finish_callback_t callback);
+                                                               matmul_bench_finish_callback_t callback,
+                                                               void *callback_data);
 MATMUL_BENCH_EXPORT void matmul_bench_result_fini(struct MatmulBench *mb,
                                                   struct MatmulBenchResult *param);
 

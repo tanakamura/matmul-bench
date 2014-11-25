@@ -1,0 +1,9 @@
+#include "resource.h"
+
+IDC_MAINMENU MENU
+BEGIN
+    POPUP "ヘルプ(&H)"
+    BEGIN
+        MENUITEM "バージョン情報(&A)...",              IDM_ABOUT
+    END
+END

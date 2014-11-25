@@ -195,7 +195,6 @@ matmul_bench_init(unsigned int num_thread)
                         NULL, NULL);
 #endif
 
-
     ret->feature_bits = 0;
 
     struct npr_varray test_set;
@@ -485,7 +484,8 @@ struct RunTestState {
 struct MatmulBenchResult *
 matmul_bench_run(struct MatmulBench *b,
                  struct MatmulBenchConfig *c,
-                 matmul_bench_finish_callback_t callback)
+                 matmul_bench_finish_callback_t callback,
+                 void *callback_data)
 {
     struct MatmulBenchResult *r = malloc(sizeof(*r));
     int num_enable = 0;
@@ -596,7 +596,7 @@ matmul_bench_run(struct MatmulBench *b,
                     double te = matmul_bench_sec();
                     double dt = te-tb;
 
-                    callback(t, dt, iter_i, n);
+                    callback(t, dt, iter_i, n, callback_data);
 
                     if (dt > c->max_time_sec) {
                         timeout_cur_size[ti] = 1;

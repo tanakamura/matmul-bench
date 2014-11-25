@@ -31,16 +31,18 @@ static void
 disp_flops(const struct MatmulBenchTest *test,
            double sec,
            unsigned int iter,
-           unsigned long mat_size)
+           unsigned long mat_size,
+           void *p)
 {
     double n = mat_size;
+
     printf("(%5d-%2d):%-20s: sec=%8.5f, %9.5f[GFLOPS], %8.5f[GB/s]\n",
            (int)mat_size,
            (int)iter,
            test->name,
            sec,
-           n*n*n*2/(sec*1024.0*1024.0*1024.0),
-           (n*n*3.0*sizeof(float))/(sec*1024.0*1024.0*1024.0));
+           n*n*n*2/(sec*1000.0*1000.0*1000.0),
+           (n*n*3.0*sizeof(float))/(sec*1000.0*1000.0*1000.0));
 }
 
 int
@@ -242,7 +244,7 @@ main(int argc, char **argv)
         }
     }
 
-    struct MatmulBenchResult *result = matmul_bench_run(b, config, disp_flops);
+    struct MatmulBenchResult *result = matmul_bench_run(b, config, disp_flops, NULL);
 
     if (out_csv) {
         FILE *fp = fopen(out_csv, "wb");
