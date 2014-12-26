@@ -5,10 +5,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#ifndef HAVE_VSNPRINTF
-extern int vsnprintf(char *str, size_t  size, const  char *format, va_list ap);
-#endif
-
 static void
 reserve(struct npr_strbuf *buf, int len)
 {
@@ -103,6 +99,12 @@ npr_strbuf_vprintf(struct npr_strbuf *buf,
     __va_copy(tmp, l0);
 #endif
 
+#ifdef _WIN32
+    (void)rem;
+    len = _vscprintf(format, tmp);
+    va_end(tmp);
+
+#else
     rem = buf->buflen - buf->cur;
     len = vsnprintf(buf->buf + buf->cur, rem, format, tmp);
     va_end(tmp);
@@ -111,6 +113,7 @@ npr_strbuf_vprintf(struct npr_strbuf *buf,
         buf->cur += len;
         return;
     }
+#endif
 
     reserve(buf, len+1);
     vsnprintf(buf->buf + buf->cur, len+1, format, l0);
@@ -129,3 +132,11 @@ npr_strbuf_printf(struct npr_strbuf *buf,
 }
 
 
+char *
+npr_strbuf_c_str(struct npr_strbuf *buf)
+{
+    reserve(buf, 1);
+    buf->buf[buf->cur] = '\0';
+
+    return buf->buf;
+}

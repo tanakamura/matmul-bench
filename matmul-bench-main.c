@@ -251,39 +251,9 @@ main(int argc, char **argv)
         if (fp == NULL) {
             perror(out_csv);
         } else {
-            int ri, ti, ii;
-            fprintf(fp, ",");
-            for (ri=0; ri<result->num_run_max; ri++) {
-                fprintf(fp, "%d,", (int)(result->run_size_min + ri*result->run_size_step));
-            }
-            fprintf(fp, "\n");
-
-            for (ti=0; ti<result->num_test; ti++) {
-                struct MatmulBenchTest *t = &b->test_set[result->test_map[ti]];
-                struct MatmulBenchTestResult *tr = &result->results[ti];
-
-                fprintf(fp, "%s,", t->name);
-
-                for (ri=0; ri<tr->num_run; ri++) {
-                    unsigned long mat_size = result->run_size_min + ri*result->run_size_step;
-                    double min = DBL_MAX;
-
-                    for (ii=0; ii<iter; ii++) {
-                        if (tr->sec[ri][ii] < min) {
-                            min = tr->sec[ri][ii];
-                        }
-                    }
-
-                    double flops = mat_size*(double)mat_size*mat_size*2/(min*1000.0*1000.0*1000.0);
-
-                    fprintf(fp, "%f,", flops);
-                }
-
-                fprintf(fp, "\n");
-            }
+            matmul_bench_export_csv(fp, b, config, result);
         }
     }
-
 
     matmul_bench_result_fini(b, result);
     matmul_bench_config_fini(b, config);

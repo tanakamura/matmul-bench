@@ -17,6 +17,8 @@ struct npr_strbuf {
 void npr_strbuf_init(struct npr_strbuf *sb);
 void npr_strbuf_fini(struct npr_strbuf *sb);
 
+char *npr_strbuf_c_str(struct npr_strbuf *sb);
+
 char *npr_strbuf_strdup(struct npr_strbuf *sb);
 char *npr_strbuf_strdup_pool(struct npr_strbuf *sb, struct npr_mempool *pool);
 

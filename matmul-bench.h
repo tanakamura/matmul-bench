@@ -1,6 +1,8 @@
 #ifndef MATMUL_BENCH_H
 #define MATMUL_BENCH_H
 
+#include <stdio.h>
+
 #ifdef _WIN32
 #include <windows.h>
 
@@ -117,5 +119,12 @@ MATMUL_BENCH_EXPORT struct MatmulBenchResult *matmul_bench_run(struct MatmulBenc
                                                                void *callback_data);
 MATMUL_BENCH_EXPORT void matmul_bench_result_fini(struct MatmulBench *mb,
                                                   struct MatmulBenchResult *param);
+
+MATMUL_BENCH_EXPORT double matmul_bench_calc_gflops(unsigned int n, double sec);
+
+MATMUL_BENCH_EXPORT void matmul_bench_export_csv(FILE *fp,
+                                                 struct MatmulBench *mb,
+                                                 struct MatmulBenchConfig *config,
+                                                 struct MatmulBenchResult *r);
 
 #endif

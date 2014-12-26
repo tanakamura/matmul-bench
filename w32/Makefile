@@ -4,17 +4,18 @@ CFLAGS_COMMON=-I.. -MD  -Wall -std=c99 -Werror=implicit-function-declaration
 CFLAGS_W32=$(CFLAGS_COMMON) -L../dll/w32
 CFLAGS_W64=$(CFLAGS_COMMON) -L../dll/w64
 
-SRCS=main.c
+SRCS=main.c strbuf.c mempool-c.c
 OBJS_32=$(patsubst %.c,$(CURDIR)/w32/%.o,$(SRCS))
 OBJS_64=$(patsubst %.c,$(CURDIR)/w64/%.o,$(SRCS))
 
-LDLIBS=-lmatmul-bench -luser32 -lgdi32
+LDLIBS=-lmatmul-bench -luser32 -lgdi32 -lcomdlg32
+LDFLAGS= # -mwindows
 
 w32/matmul-bench.exe: $(OBJS_32) w32/resource.res
-	${X86_MINGW32_GCC} ${CFLAGS_W32} -o $@ $^ $(LDLIBS)
+	${X86_MINGW32_GCC} ${CFLAGS_W32} -o $@ $^ $(LDLIBS) $(LDFLAGS)
 
 w64/matmul-bench.exe: $(OBJS_64) w64/resource.res
-	${X86_64_MINGW64_GCC} ${CFLAGS_W64} -o $@ $^ $(LDLIBS)
+	${X86_64_MINGW64_GCC} ${CFLAGS_W64} -o $@ $^ $(LDLIBS) $(LDFLAGS)
 
 w32/matmul-bench.dll: ..\dll\w32\matmul-bench.dll
 	copy ..\dll\w32\matmul-bench.dll w32
@@ -34,6 +35,11 @@ X86_MINGW32_GCC=i686-w64-mingw32-gcc
 $(CURDIR)/w32/%.o: $(CURDIR)/%.c
 	${X86_MINGW32_GCC} ${CFLAGS_W32} -c -o $@ $<
 $(CURDIR)/w64/%.o: $(CURDIR)/%.c
+	${X86_64_MINGW64_GCC} ${CFLAGS_W64} -c -o $@ $<
+
+$(CURDIR)/w32/%.o: $(CURDIR)/../npr/%.c
+	${X86_MINGW32_GCC} ${CFLAGS_W32} -c -o $@ $<
+$(CURDIR)/w64/%.o: $(CURDIR)/../npr/%.c
 	${X86_64_MINGW64_GCC} ${CFLAGS_W64} -c -o $@ $<
 
 ALLOBJS=$(OBJS_32) $(OBJS_64)

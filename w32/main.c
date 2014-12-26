@@ -17,13 +17,15 @@ static int
 on_create(HWND hWnd, LPCREATESTRUCT cs)
 {
     struct app *app = (struct app*)cs->lpCreateParams;
+    app->main_win = hWnd;
+
     SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)app);
 
-    app->console_text = malloc(128);
-    app->console_text_size = 128;
+    npr_strbuf_init(&app->console_text);
 
     app->bench = matmul_bench_init(0);
     app->config = matmul_bench_config_init(app->bench);
+    app->last_result = NULL;
 
     app->control_font = CreateFont(18, 0, 0, 0, FW_DONTCARE,
                                    FALSE, FALSE, FALSE,
@@ -77,13 +79,69 @@ on_create(HWND hWnd, LPCREATESTRUCT cs)
 
     app->tests = (struct bench_test *)malloc(sizeof(struct bench_test) * nt);
 
+    HWND l0 = CreateWindowEx(0,
+                             "STATIC",
+                             "max sec",
+                             WS_VISIBLE | WS_CHILD | SS_RIGHT,
+                             40,
+                             20 + 40,
+                             150,
+                             25,
+                             hWnd,
+                             NULL,
+                             app->hInst,
+                             NULL);
+
+    app->sec_in = CreateWindowEx(WS_EX_CLIENTEDGE,
+                                 "EDIT",
+                                 "1.5",
+                                 WS_VISIBLE | WS_CHILD | ES_LEFT,
+                                 240,
+                                 20 + 40,
+                                 150,
+                                 25,
+                                 hWnd,
+                                 NULL,
+                                 app->hInst,
+                                 NULL);
+
+    HWND l1 = CreateWindowEx(0,
+                             "STATIC",
+                             "iter",
+                             WS_VISIBLE | WS_CHILD | SS_RIGHT,
+                             40,
+                             20 + 40 + 24,
+                             150,
+                             25,
+                             hWnd,
+                             NULL,
+                             app->hInst,
+                             NULL);
+    app->iter_in = CreateWindowEx(WS_EX_CLIENTEDGE,
+                                  "EDIT",
+                                  "3",
+                                  WS_VISIBLE | WS_CHILD | ES_LEFT,
+                                  240,
+                                  20 + 40 + 24,
+                                  150,
+                                  25,
+                                  hWnd,
+                                  NULL,
+                                  app->hInst,
+                                  NULL);
+
+    SetWindowFont(l0, app->control_font, TRUE);
+    SetWindowFont(l1, app->control_font, TRUE);
+    SetWindowFont(app->sec_in, app->control_font, TRUE);
+    SetWindowFont(app->iter_in, app->control_font, TRUE);
+
     for (int i=0; i<nt; i++) {
         DWORD s = WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON | BS_CHECKBOX | BS_AUTOCHECKBOX;
         HWND b = CreateWindow("BUTTON",
                               ts[i].name,
                               s,
                               20,
-                              20 + 40 + 30*i,
+                              20 + 100 + 30*i,
                               150,
                               25,
                               hWnd,
@@ -94,15 +152,15 @@ on_create(HWND hWnd, LPCREATESTRUCT cs)
         app->tests[i].check_box = b;
         SetWindowFont(b, app->control_font, TRUE);
 
-        Button_SetCheck(b, 1);
+        Button_SetCheck(b, 0);
 
         s = WS_VISIBLE | WS_CHILD | ES_LEFT | ES_READONLY;
         HWND e = CreateWindowEx(WS_EX_CLIENTEDGE,
                                 "EDIT",
                                 "n/a",
                                 s,
-                                180,
-                                20 + 40 + 30*i,
+                                240,
+                                20 + 100 + 30*i,
                                 150,
                                 25,
                                 hWnd,
@@ -111,6 +169,7 @@ on_create(HWND hWnd, LPCREATESTRUCT cs)
                                 NULL);
 
         app->tests[i].result_box = e;
+        app->tests[i].max_flops = 0;
         SetWindowFont(e, app->control_font, TRUE);
     }
 
@@ -147,30 +206,20 @@ disp_flops(const struct MatmulBenchTest *test,
 {
     struct app *app = (struct app*)ap;
     double n = mat_size;
-    char buffer0[4096];
 
-    snprintf(buffer0, 4096,
-             "(%5d-%2d):%-20s: sec=%8.5f, %9.5f[GFLOPS], %8.5f[GB/s]\n",
-             (int)mat_size,
-             (int)iter,
-             test->name,
-             sec,
-             n*n*n*2/(sec*1000.0*1000.0*1000.0),
-             (n*n*3.0*sizeof(float))/(sec*1000.0*1000.0*1000.0));
+    npr_strbuf_printf(&app->console_text,
+                      "\r\n(%5d-%2d):%-20s: sec=%8.5f, %9.5f[GFLOPS], %8.5f[GB/s]",
+                      (int)mat_size,
+                      (int)iter,
+                      test->name,
+                      sec,
+                      n*n*n*2/(sec*1000.0*1000.0*1000.0),
+                      (n*n*3.0*sizeof(float))/(sec*1000.0*1000.0*1000.0));
 
-    size_t len0 = strlen(buffer0);
-    size_t edit_len = Edit_GetTextLength(app->console);
-    size_t len = edit_len + len0 + 1;
-    char *buffer = malloc(len);
-
-    Edit_GetText(app->console, buffer, edit_len+1);
-    memcpy(buffer + edit_len, buffer0, len0);
-    buffer[edit_len + len0] = '\0';
-    printf("%d %d %s\n", edit_len, len0, buffer);
-    puts("==");
-    Edit_SetText(app->console, buffer0);
-
-    free(buffer);
+    char *con = npr_strbuf_c_str(&app->console_text);
+    Edit_SetText(app->console, con);
+    Edit_SetSel(app->console, app->console_text.cur, app->console_text.cur);
+    Edit_ScrollCaret(app->console);
 }
 
 
@@ -178,11 +227,50 @@ static unsigned __stdcall
 bench_func(void *ap)
 {
     struct app *app = (struct app*)ap;
+    struct MatmulBenchResult *r;
+    int rti;
 
-    matmul_bench_run(app->bench,
-                     app->config,
-                     disp_flops,
-                     app);
+    r = matmul_bench_run(app->bench,
+                         app->config,
+                         disp_flops,
+                         app);
+
+    int size_step = r->run_size_step;
+    int size_min = r->run_size_min;
+
+    for (rti=0; rti<r->num_test; rti++) {
+        int ti = r->test_map[rti];
+
+        double max = app->tests[ti].max_flops;
+        struct MatmulBenchTestResult *tr = &r->results[rti];
+        int config_iter = app->config->iter;
+        int num_run = tr->num_run;
+        int ri, ii;
+        int max_size = 0;
+
+        for (ri=0; ri<num_run; ri++) {
+            for (ii=0; ii<config_iter; ii++) {
+                int n = size_min + size_step * ri;
+                double sec = tr->sec[ri][ii];
+                double flops = matmul_bench_calc_gflops(n, sec);
+
+                if (flops > max) {
+                    max = flops;
+                    max_size = n;
+                }
+            }
+        }
+
+        char flops_text[64];
+        snprintf(flops_text, 64, "%.3f@%d^3", max, max_size);
+
+        Edit_SetText(app->tests[ti].result_box, flops_text);
+    }
+
+    if (app->last_result) {
+        matmul_bench_result_fini(app->bench, app->last_result);
+    }
+    app->last_result = r;
 
     SetEvent(app->finish_event);
 
@@ -203,6 +291,31 @@ start_benchmark(HWND hWnd)
         config->enable[ti] = enable;
     }
 
+    config->size_step = 64;
+    config->size_min = 64;
+
+    char text[4096];
+
+    Edit_GetText(app->iter_in, text, 4096);
+    int iter = atoi(text);
+
+    if (iter <= 0 || iter > 10) {
+        iter = 3;
+        Edit_SetText(app->iter_in, "3");
+    }
+    config->iter = iter;
+
+    Edit_GetText(app->sec_in, text, 4096);
+    double sec = atof(text);
+    if (sec <= 0 || sec > 120) {
+        sec = 1.5;
+        Edit_SetText(app->sec_in, "1.5");
+    }
+
+    config->max_time_sec = sec;
+
+    app->console_text.cur = 0;
+
     update_state(app, APP_RUNNING);
 
     unsigned int threadID;
@@ -212,10 +325,39 @@ start_benchmark(HWND hWnd)
 static void
 on_command(HWND hWnd, int id, HWND com_wnd, UINT code)
 {
+    GET_APP();
+
     switch (id) {
     case IDM_ABOUT:
         MessageBox(NULL, "‚Ü‚Æ‚Ü‚é‚¿‚á‚ñ\nver 1.0", "‚Ü‚Æ‚Ü‚é‚¿‚á‚ñ", MB_OK);
         break;
+
+    case IDM_EXPORT: {
+        OPENFILENAME ofn;
+        char szFile[1024];
+
+        ZeroMemory(&ofn, sizeof(ofn));
+
+        ofn.lStructSize = sizeof(ofn);
+
+        ofn.hwndOwner = app->main_win;
+        ofn.lpstrFile = szFile;
+        ofn.lpstrFile[0] = '\0';
+        ofn.nMaxFile = sizeof(szFile);
+        ofn.lpstrFilter = "csv(*.csv)\0*.csv\0All(*.*)\0*.*\0\0";
+        ofn.nFilterIndex = 1;
+        ofn.lpstrFileTitle = NULL;
+        ofn.nMaxFileTitle = 0;
+        ofn.lpstrInitialDir = NULL;
+        ofn.Flags = 0;
+        ofn.lpstrDefExt = "csv";
+
+        if (GetOpenFileName(&ofn)) {
+            
+        }
+    }
+        break;
+
 
     case IDC_START:
         start_benchmark(hWnd);
@@ -229,6 +371,18 @@ on_ctl_color_static(HWND hwnd, HDC hdc, HWND ctl, int message)
     return GetStockObject(NULL_BRUSH);
 }
 
+static void
+on_paint(HWND hwnd)
+{
+    PAINTSTRUCT ps;
+
+    HDC dc = BeginPaint(hwnd, &ps);
+
+    FillRect(dc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW+1));
+
+    EndPaint(hwnd, &ps);
+}
+
 static LRESULT WINAPI
 wndproc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
 {
@@ -238,6 +392,7 @@ wndproc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
         HANDLE_MSG(hWnd, WM_SIZE, on_size);
         HANDLE_MSG(hWnd, WM_COMMAND, on_command);
         HANDLE_MSG(hWnd, WM_CTLCOLORSTATIC, on_ctl_color_static);
+        HANDLE_MSG(hWnd, WM_PAINT, on_paint);
 
     default:
         return DefWindowProc( hWnd, msg, wParam, lParam );
@@ -270,29 +425,34 @@ main2(HINSTANCE hInst, int nCmdShow)
     UpdateWindow(hWnd);
 
     MSG msg;
+    int run = 1;
 
-    while (1) {
+    while (run) {
         DWORD r = MsgWaitForMultipleObjects(1,
                                             &app->finish_event,
                                             FALSE,
                                             INFINITE,
                                             QS_ALLINPUT);
-
         if (r == WAIT_OBJECT_0) {
             WaitForSingleObject(app->run_thread, INFINITE);
             CloseHandle(app->run_thread);
 
             update_state(app, APP_IDLE);
         } else {
-            int r = GetMessage(&msg, NULL, 0, 0);
-            if (!r) {
-                break;
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))  {
+                if (msg.message == WM_QUIT) {
+                    run = 0;
+                } else {
+                    TranslateMessage(&msg);
+                    DispatchMessage(&msg);
+                }
             }
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
         }
     }
 
+    if (app->last_result) {
+        matmul_bench_result_fini(app->bench, app->last_result);
+    }
     matmul_bench_fini(app->bench);
 
     free(app);
