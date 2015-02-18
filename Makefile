@@ -81,6 +81,8 @@ X86_LIB_SRCS=$(patsubst %.c,$(CURDIR)/%.c,$(X86_SRCS_BASE))
 X86_EXE_OBJS=$(patsubst %.c,$(CURDIR)/obj/x86_64/%.o,${X86_SRCS_BASE} matmul-bench-main.c)
 X86_LIB_OBJS=$(patsubst %.c,$(CURDIR)/obj/x86_64/%.o,${X86_SRCS_BASE})
 
+LINUX_LDLIBS=-lrt
+
 W64_EXE_OBJS=$(patsubst %.c,$(CURDIR)/obj/w64/%.o,${X86_SRCS_BASE} matmul-bench-main.c)
 W64_LIB_OBJS=$(patsubst %.c,$(CURDIR)/obj/w64/%.o,${X86_SRCS_BASE})
 
@@ -108,9 +110,9 @@ CFLAGS_W32=-msse2 $(CFLAGS_COMMON) -static
 
 
 matmul-bench-x86_64-linux: $(X86_EXE_OBJS)
-	${X86_64_LINUX_GCC} ${CFLAGS_COMMON} -o $@ $^
+	${X86_64_LINUX_GCC} ${LINUX_LDLIBS} ${CFLAGS_COMMON} -o $@ $^
 dll/x86_64/libmatmul-bench.so: $(X86_LIB_OBJS)
-	${X86_64_LINUX_GCC} -shared ${CFLAGS_COMMON} -o $@ $^
+	${X86_64_LINUX_GCC} ${LINUX_LDLIBS} -shared ${CFLAGS_COMMON} -o $@ $^
 
 matmul-bench-w64.exe: $(W64_EXE_OBJS)
 	${X86_64_MINGW64_GCC} ${CFLAGS_COMMON} -static -o $@ $^
@@ -123,9 +125,9 @@ dll/w32/matmul-bench.dll: $(W32_LIB_OBJS)
 	${X86_MINGW32_GCC} -Wl,--out-implib=dll/w32/matmul-bench.lib -static -s -shared ${CFLAGS_W32} -o $@ $^
 
 matmul-bench-arm-linux: $(ARM_LINUX_EXE_OBJS)
-	${ARM_LINUX_GCC} ${CFLAGS_COMMON} -o $@ $^
+	${ARM_LINUX_GCC} ${LINUX_LDLIBS} ${CFLAGS_COMMON} -o $@ $^
 dll/arm-linux/libmatmul-bench.so: $(ARM_LINUX_LIB_OBJS)
-	${ARM_LINUX_GCC} ${CFLAGS_COMMON} -shared -o $@ $^
+	${ARM_LINUX_GCC} ${LINUX_LDLIBS} ${CFLAGS_COMMON} -shared -o $@ $^
 
 matmul-bench-arm-android: $(ARM_ANDROID_EXE_OBJS)
 	${ARM_ANDROID_GCC} ${CFLAGS_ANDROID} -o $@ $^
