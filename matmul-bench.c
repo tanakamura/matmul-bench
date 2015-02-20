@@ -730,7 +730,7 @@ matmul_bench_run(struct MatmulBench *b,
                             if (ratio > 1e-3) {
                                 printf("error delta=%e(%e[%%]), simple=%e, opt=%e\n", delta, ratio, out[i], out0[i]);
 
-                                if (n < 32) {
+                                if (n < 100) {
                                     puts(b->test_set[test_map[first_run]].name);
                                     dump(out0, n);
                                     puts(t->name);
