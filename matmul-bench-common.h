@@ -82,6 +82,7 @@ __attribute__((aligned(64)))
 struct MatmulBenchThreadArg {
     struct MatmulBench *b;
     int fini;
+    int thread_id;
 
 #ifdef _WIN32
     HANDLE from_master_ev;
@@ -94,7 +95,8 @@ struct MatmulBenchThreadArg {
 
 typedef void (*matmul_bench_thread_func_t)(struct MatmulBenchParam *p,
                                            unsigned long i_start,
-                                           unsigned long i_end);
+                                           unsigned long i_end,
+                                           unsigned int thread_id);
 
 __attribute__((aligned(64))) struct MatmulBenchThreadPool {
 #ifdef _WIN32

@@ -160,7 +160,8 @@ CONCAT(AVX_FUNC_NAME,_)(unsigned long i00,
 static void
 CONCAT(AVX_FUNC_NAME,thread)(struct MatmulBenchParam *p,
                              unsigned long i_start,
-                             unsigned long i_end)
+                             unsigned long i_end,
+                             unsigned int thread_id)
 {
     float * __restrict out = p->out;
     unsigned long n = p->n;

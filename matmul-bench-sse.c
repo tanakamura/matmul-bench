@@ -69,7 +69,8 @@ sse_(unsigned long i0,
 static void
 sse_thread_func(struct MatmulBenchParam *p,
                 unsigned long i_start,
-                unsigned long i_end)
+                unsigned long i_end,
+                unsigned int thread_id)
 {
     float * __restrict out = p->out;
     const float * __restrict inL = p->inL;

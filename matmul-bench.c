@@ -166,7 +166,7 @@ thread_func(void *ap)
             unsigned long end = i+i_block_size;
             end = (end<max_i)?end:max_i;
 
-            func(param, i, end);
+            func(param, i, end, a->thread_id);
         }
 
         a->fini = 1;
@@ -400,6 +400,7 @@ matmul_bench_init(unsigned int num_thread)
     for (int ti=0; ti<num_thread; ti++) {
         struct MatmulBenchThreadArg *a = &pl->args[ti];
         a->b = ret;
+        a->thread_id = ti;
 
 #ifdef _WIN32
         unsigned int threadID;

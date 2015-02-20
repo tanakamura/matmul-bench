@@ -25,7 +25,8 @@ simple_run(struct MatmulBenchParam *p)
 static void
 thread_func(struct MatmulBenchParam *p,
             unsigned long i_start,
-            unsigned long i_end)
+            unsigned long i_end,
+            unsigned int thread_id)
 {
     float * __restrict out = p->out;
     const float * __restrict inL = p->inL;
@@ -54,7 +55,8 @@ simple_thread_run(struct MatmulBenchParam *p)
 static void
 outer_func(struct MatmulBenchParam *p,
            unsigned long i_start,
-           unsigned long i_end)
+           unsigned long i_end,
+           unsigned int thread_id)
 {
     const float * __restrict inL = p->inL;
     const float * __restrict inR = p->inR;

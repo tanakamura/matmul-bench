@@ -62,6 +62,8 @@ __attribute__((aligned(64))) struct MatmulBenchParam {
     unsigned int n;
     unsigned int pitch_byte;
     unsigned int i_block_size;
+
+    void *ptr;
 };
 
 typedef void (*matmul_bench_test_run_t)(struct MatmulBenchParam *p);

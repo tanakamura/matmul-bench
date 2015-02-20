@@ -7,7 +7,8 @@ typedef float v8sf __attribute__((vector_size (32)));
 static void
 gccvec4_thread_func(struct MatmulBenchParam *p,
                     unsigned long i_start,
-                    unsigned long i_end)
+                    unsigned long i_end,
+                    unsigned int thread_id)
 {
     float * __restrict out = p->out;
     const float * __restrict inL = p->inL;
@@ -46,7 +47,8 @@ gccvec4_run(struct MatmulBenchParam *p)
 static void
 gccvec8_thread_func(struct MatmulBenchParam *p,
                     unsigned long i_start,
-                    unsigned long i_end)
+                    unsigned long i_end,
+                    unsigned int thread_id)
 {
     float * __restrict out = p->out;
     const float * __restrict inL = p->inL;
@@ -88,7 +90,8 @@ gccvec8_run(struct MatmulBenchParam *p)
 static void
 block_thread_func(struct MatmulBenchParam *p,
                   unsigned long i_start,
-                  unsigned long i_end)
+                  unsigned long i_end,
+                  unsigned int thread_id)
 {
     unsigned long i0;
     float * __restrict out = p->out;
@@ -142,7 +145,8 @@ block_run(struct MatmulBenchParam *p)
 static void
 block_unroll_thread_func(struct MatmulBenchParam *p,
                          unsigned long i_start,
-                         unsigned long i_end)
+                         unsigned long i_end,
+                         unsigned int thread_id)
 {
     unsigned long i0;
     float * __restrict out = p->out;

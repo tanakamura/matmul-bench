@@ -10,15 +10,18 @@
 #include "matmul-bench-avxfunc.h"
 
 static void
-fma_tmp_run(struct MatmulBenchParam *p)
+fma_thread(struct MatmulBenchParam *p,
+           unsigned long i_start,
+           unsigned long i_end,
+           unsigned int thread_id)
 {
     unsigned long n = p->n;
+    float **tR_base_list = (float**)p->ptr;
+    float *tR_base = tR_base_list[thread_id];
 
     float * __restrict out = p->out;
     const float * __restrict inL = p->inL;
     const float * __restrict inR = p->inR;
-
-    float *tR_base = _aligned_malloc(8*3*n*sizeof(float), 64);
 
     /*     r0  r1  r2
      *    +-----------
@@ -33,13 +36,12 @@ fma_tmp_run(struct MatmulBenchParam *p)
 #define O_BLKSIZE_VER 4U
 
     unsigned long o_bhi, o_bvi, l_hi;
-    unsigned long num_oblk_hor = n / O_BLKSIZE_HOR;
     unsigned long num_oblk_ver = n / O_BLKSIZE_VER;
 
     __m256 l0, l1, l2, l3;
     __m256 r0, r1, r2;
 
-    for (o_bhi=0; o_bhi<num_oblk_hor; o_bhi++) {
+    for (o_bhi=i_start; o_bhi<i_end; o_bhi++) {
         __m256 o00=_mm256_setzero_ps(), o01=_mm256_setzero_ps(), o02=_mm256_setzero_ps();
         __m256 o10=_mm256_setzero_ps(), o11=_mm256_setzero_ps(), o12=_mm256_setzero_ps();
         __m256 o20=_mm256_setzero_ps(), o21=_mm256_setzero_ps(), o22=_mm256_setzero_ps();
@@ -164,7 +166,27 @@ fma_tmp_run(struct MatmulBenchParam *p)
         }
     }
 
-    _aligned_free(tR_base);
+}
+
+static void
+fma_tmp_run(struct MatmulBenchParam *p)
+{
+    unsigned long n = p->n;
+    unsigned long num_oblk_hor = n / O_BLKSIZE_HOR;
+    int num_thread = p->mb->threads->num_thread;
+
+    float **tR_base_list = malloc(sizeof(float*) * num_thread);
+    p->ptr = tR_base_list;
+    for (int ti=0; ti<num_thread; ti++) {
+        float *tR_base = _aligned_malloc(8*3*n*sizeof(float), 64);
+        tR_base_list[ti] = tR_base;
+    }
+    matmul_bench_thread_call(p, p->i_block_size, num_oblk_hor, fma_thread);
+    for (int ti=0; ti<num_thread; ti++) {
+        _aligned_free(tR_base_list[ti]);
+    }
+
+    free(tR_base_list);
 }
 
 static const struct MatmulBenchTest fma = MATMULBENCH_TEST_INITIALIZER("fma", fma_run, 128);
