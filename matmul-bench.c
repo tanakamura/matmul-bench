@@ -482,6 +482,17 @@ struct RunTestState {
     double *sec_buffer;
 };
 
+static void
+dump(float *p, int n)
+{
+    for (int i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            printf("%.1f ", p[i*n + j]);
+        }
+        puts("");
+    }
+}
+
 struct MatmulBenchResult *
 matmul_bench_run(struct MatmulBench *b,
                  struct MatmulBenchConfig *c,
@@ -616,6 +627,14 @@ matmul_bench_run(struct MatmulBench *b,
 
                             if (ratio > 1e-3) {
                                 printf("error delta=%e(%e[%%]), simple=%e, opt=%e\n", delta, ratio, out[i], out0[i]);
+
+                                if (n < 32) {
+                                    puts(b->test_set[test_map[first_run]].name);
+                                    dump(out0, n);
+                                    puts(t->name);
+                                    dump(out, n);
+                                }
+
                                 exit(1);
                             }
                         }
