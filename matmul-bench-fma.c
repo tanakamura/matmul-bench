@@ -32,7 +32,7 @@ fma_tmp_run(struct MatmulBenchParam *p)
 #define O_BLKSIZE_HOR (8U * 3U)
 #define O_BLKSIZE_VER 4U
 
-    unsigned long o_bhi, o_bvi, r_vi, l_hi;
+    unsigned long o_bhi, o_bvi, l_hi;
     unsigned long num_oblk_hor = n / O_BLKSIZE_HOR;
     unsigned long num_oblk_ver = n / O_BLKSIZE_VER;
 
@@ -45,7 +45,7 @@ fma_tmp_run(struct MatmulBenchParam *p)
         __m256 o20=_mm256_setzero_ps(), o21=_mm256_setzero_ps(), o22=_mm256_setzero_ps();
         __m256 o30=_mm256_setzero_ps(), o31=_mm256_setzero_ps(), o32=_mm256_setzero_ps();
 
-        float *pl0 = inL;
+        const float *pl0 = inL;
         const float * __restrict Rline = inR + o_bhi * O_BLKSIZE_HOR;
         __m256 *tR = (__m256*)tR_base;
 
@@ -111,7 +111,7 @@ fma_tmp_run(struct MatmulBenchParam *p)
             __m256 o20=_mm256_setzero_ps(), o21=_mm256_setzero_ps(), o22=_mm256_setzero_ps();
             __m256 o30=_mm256_setzero_ps(), o31=_mm256_setzero_ps(), o32=_mm256_setzero_ps();
 
-            float *pl0 = inL + o_bvi * O_BLKSIZE_VER * n;
+            const float *pl0 = inL + o_bvi * O_BLKSIZE_VER * n;
             const float * __restrict Rline = tR_base;
 
             for (l_hi=0; l_hi<n; l_hi++) {

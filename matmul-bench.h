@@ -89,8 +89,13 @@ typedef void (*matmul_bench_finish_callback_t)(const struct MatmulBenchTest *tes
 struct MatmulBench {
     int num_test;
     struct MatmulBenchTest *test_set;
+    long long cpu_freq;
     int feature_bits;
+    int ops_per_cycle;
+    const char *arch_name;
     struct MatmulBenchThreadPool *threads;
+
+    double theoretical_peak_flops;
 };
 
 struct MatmulBenchResult;

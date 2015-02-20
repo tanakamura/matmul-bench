@@ -174,6 +174,9 @@ main(int argc, char **argv)
     struct MatmulBench *b = matmul_bench_init(num_thread);
     if (run_type == DISPLAY_TEST_INFO) {
         int i;
+        printf("CPU = %s, %f[MHz]\n",
+               b->arch_name, b->cpu_freq / (1000.0*1000.0));
+
         printf("<cpu feature =");
 
         if (b->feature_bits & MATMULBENCH_FEATURE_SSE) {

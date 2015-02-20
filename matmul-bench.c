@@ -197,6 +197,10 @@ matmul_bench_init(unsigned int num_thread)
 #endif
 
     ret->feature_bits = 0;
+    ret->ops_per_cycle = -1;
+    ret->cpu_freq = -1;
+    ret->arch_name = "unknown";
+    ret->theoretical_peak_flops = -1;
 
     struct npr_varray test_set;
 
@@ -205,9 +209,71 @@ matmul_bench_init(unsigned int num_thread)
     matmulbench_init_simple_c(ret, &test_set);
     matmulbench_init_opt_c(ret, &test_set);
 
+#ifdef __linux
+    FILE *freq = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq", "rb");
+    if (freq) {
+        long long v=0;
+        int r = fscanf(freq, "%lld", &v);
+        fclose(freq);
+        if (r == 1) {
+            ret->cpu_freq = v*1000;
+        }
+    }
+
+#endif
+
 #ifdef ARCH_X86
     unsigned int eax=0, ebx=0, ecx=0, edx=0;
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+
+    unsigned int sig = (eax & 0x000ffff0);
+
+    switch (sig) {
+    case 0x000306c0:
+        ret->arch_name = "Haswell";
+        ret->ops_per_cycle = 8 * 2 * 2;
+        break;
+    case 0x000306f0:
+        ret->arch_name = "Haswell-E";
+        ret->ops_per_cycle = 8 * 2 * 2;
+        break;
+
+    case 0x000306a0:
+        ret->arch_name = "IvyBridge";
+        ret->ops_per_cycle = 8 * 2;
+        break;
+    case 0x000306e0:
+        ret->arch_name = "IvyBridge-E";
+        ret->ops_per_cycle = 8 * 2;
+        break;
+
+    case 0x000206a0:
+        ret->arch_name = "SandyBridge";
+        ret->ops_per_cycle = 8 * 2;
+        break;
+    case 0x000206d0:
+        ret->arch_name = "SandyBridge-E";
+        ret->ops_per_cycle = 8 * 2;
+        break;
+
+    case 0x00030670:
+        ret->arch_name = "Silvermont";
+        ret->ops_per_cycle = 6; /* 4/2mul + 4add */
+        break;
+    case 0x000106c0:
+        ret->arch_name = "Bonnel";
+        ret->ops_per_cycle = 6; /* 4/2mul + 4add */
+        break;
+    case 0x00030650:
+        ret->arch_name = "Saltwell";
+        ret->ops_per_cycle = 6; /* 4/2mul + 4add */
+        break;
+
+
+    default:
+        /* unknown */
+        break;
+    }
 
     if (edx & (1<<25)) {
         matmulbench_init_sse(ret, &test_set);
@@ -252,6 +318,38 @@ matmul_bench_init(unsigned int num_thread)
                         if (strncmp(line+cur, "vfpv4", 5) == 0) {
                             ret->feature_bits |= MATMULBENCH_FEATURE_VFPV4;
                         }
+                        if (strncmp(line+cur, "neon", 4) == 0) {
+                            ret->feature_bits |= MATMULBENCH_FEATURE_NEON;
+                        }
+                        while (cur<len) {
+                            if (line[cur] == ' ') {
+                                cur++;
+                                break;
+                            }
+                            cur++;
+                        }
+                    }
+                }
+
+                if (strncmp(line, "CPU part", 8) == 0) {
+                    int cur = 0;
+                    size_t len = strlen(line);
+                    for (cur=0; cur<len; cur++) {
+                        if (line[cur]==':') {
+                            cur++;
+                            break;
+                        }
+                    }
+
+                    while (cur < len) {
+                        if (strncmp(line+cur, "0xc09", 5) == 0) {
+                            ret->arch_name = "Cortex-A9";
+                        } else if (strncmp(line+cur, "0xc08", 5) == 0) {
+                            ret->arch_name = "Cortex-A8";
+                        } else if (strncmp(line+cur, "0xc0f", 5) == 0) {
+                            ret->arch_name = "Cortex-A15";
+                        }
+
                         if (strncmp(line+cur, "neon", 4) == 0) {
                             ret->feature_bits |= MATMULBENCH_FEATURE_NEON;
                         }
@@ -326,6 +424,10 @@ matmul_bench_init(unsigned int num_thread)
     ret->num_test = test_set.nelem;
     ret->test_set = npr_varray_malloc_close(&test_set);
 
+    if (ret->ops_per_cycle != -1 && ret->cpu_freq != -1) {
+        ret->theoretical_peak_flops = ret->ops_per_cycle * ret->cpu_freq * num_thread;
+    }
+
     return ret;
 }
 
@@ -334,7 +436,6 @@ matmul_bench_fini(struct MatmulBench *mb)
 {
     struct MatmulBenchThreadPool *pl = mb->threads;
     int num_thread = pl->num_thread;
-    uint64_t ev_val = 1;
 
     pl->fini = 1;
 
@@ -543,7 +644,7 @@ matmul_bench_run(struct MatmulBench *b,
         run_size_step = test_size_step_lcm;
     } else {
         run_size_step = CEIL_DIV(run_size_step,test_size_step_lcm) * test_size_step_lcm;
-    }     
+    }
 
     if (c->mat_size) {
         run_size_min = CEIL_DIV(c->mat_size, run_size_step) * run_size_step;
