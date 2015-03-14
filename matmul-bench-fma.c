@@ -43,6 +43,19 @@ fma_thread(struct MatmulBenchParam *p,
     __m256 l0, l1, l2, l3;
     __m256 r0, r1, r2;
 
+    unsigned long n_1 = n * 1;
+    unsigned long n_2 = n * 2;
+    unsigned long n_3 = n * 3;
+
+#if (__GNUC__ == 4) && (__GNUC_MINOR__ == 9)
+    __asm__ __volatile__(" "
+                         :"+r"(n_1),
+                          "+r"(n_2),
+                          "+r"(n_3));
+#endif
+
+
+
     for (o_bhi=i_start; o_bhi<i_end; o_bhi++) {
         __m256 o00=_mm256_setzero_ps(), o01=_mm256_setzero_ps(), o02=_mm256_setzero_ps();
         __m256 o10=_mm256_setzero_ps(), o11=_mm256_setzero_ps(), o12=_mm256_setzero_ps();
@@ -53,9 +66,9 @@ fma_thread(struct MatmulBenchParam *p,
         const float * __restrict Rline = inR + o_bhi * O_BLKSIZE_HOR;
         __m256 *tR = (__m256*)tR_base;
 
-#define pl1 pl0+n*1
-#define pl2 pl0+n*2
-#define pl3 pl0+n*3
+#define pl1 pl0+n_1
+#define pl2 pl0+n_2
+#define pl3 pl0+n_3
 
         for (l_hi=0; l_hi<n; l_hi++) {
             r0 = _mm256_loadu_ps(Rline + 0);
@@ -333,13 +346,62 @@ fma_tmp_run(struct MatmulBenchParam *p)
     free(tR_base_list);
 }
 
+
+static void
+fma_simple_func(struct MatmulBenchParam *p,
+                unsigned long i_start,
+                unsigned long i_end,
+                unsigned int thread_id)
+{
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+    float * __restrict out = p->out;
+    unsigned long n = p->n;
+
+    for (unsigned long i=i_start; i<i_end; i++) {
+        for (int k=0; k<n; k++) {
+            __m256 lik = _mm256_broadcast_ss(&inL[i*n+k]);
+
+            for (int j=0; j<n; j+=8) {
+                __m256 o = _mm256_loadu_ps(&out[i*n+j]);
+                __m256 r = _mm256_loadu_ps(&inR[k*n + j]);
+
+                o = _mm256_fmadd_ps(lik, r, o);
+
+                _mm256_storeu_ps(&out[i*n+j], o);
+            }
+        }
+    }
+}
+
+static void
+fma_simple_run(struct MatmulBenchParam *p)
+{
+    float * __restrict out = p->out;
+
+    unsigned int n = p->n;
+    int i;
+
+    for (i=0; i<n; i++) {
+        for (int j=0; j<n; j++) {
+            out[i*n+j] = 0;
+        }
+    }
+
+    matmul_bench_thread_call(p, p->i_block_size, p->n, fma_simple_func);
+}
+
+
+
 static const struct MatmulBenchTest fma = MATMULBENCH_TEST_INITIALIZER("fma", fma_run, 128);
 static const struct MatmulBenchTest fma_tmp = MATMULBENCH_TEST_INITIALIZER("fma_tmp", fma_tmp_run, 96);
+static const struct MatmulBenchTest fma_simple = MATMULBENCH_TEST_INITIALIZER("fma_simple", fma_simple_run, 8);
 
 void
 matmulbench_init_fma(struct MatmulBench *b, struct npr_varray *test_set)
 {
     VA_PUSH(struct MatmulBenchTest, test_set, fma);
     VA_PUSH(struct MatmulBenchTest, test_set, fma_tmp);
+    VA_PUSH(struct MatmulBenchTest, test_set, fma_simple);
 }
 
