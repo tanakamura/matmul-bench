@@ -9,7 +9,8 @@
 #define AVX_FUNC_NAME fma_run
 #include "matmul-bench-avxfunc.h"
 
-#define MAT_3x4
+//#define MAT_3x4
+#define MAT_2x6
 
 #ifdef MAT_3x4
 #define O_BLKSIZE_HOR (8U * 3U)
@@ -182,6 +183,201 @@ fma_thread(struct MatmulBenchParam *p,
     }
 
 }
+#elif defined MAT_2x6
+
+#define O_BLKSIZE_HOR (8U * 2U)
+#define O_BLKSIZE_VER 6U
+
+static void
+fma_thread(struct MatmulBenchParam *p,
+           unsigned long i_start,
+           unsigned long i_end,
+           unsigned int thread_id)
+{
+    unsigned long n = p->n;
+    float **tR_base_list = (float**)p->ptr;
+    float *tR_base = tR_base_list[thread_id];
+
+    float * __restrict out = p->out;
+    const float * __restrict inL = p->inL;
+    const float * __restrict inR = p->inR;
+
+    /*     r0  r1  
+     *    +--------
+     * l0 |o00 o01 
+     * l1 |o10 o11   6 elem
+     * l2 |o20 o21 
+     * l3 |o30 o31 
+     * l4 |o40 o41 
+     * l5 |o50 o51 
+     *     16 elem
+     */
+    unsigned long o_bhi, o_bvi, l_hi;
+    unsigned long num_oblk_ver = n / O_BLKSIZE_VER;
+
+    __m256 l0, l1, l2, l3, l4, l5;
+    __m256 r0, r1;
+
+    unsigned long n_1 = n * 1;
+    unsigned long n_2 = n * 2;
+    unsigned long n_3 = n * 3;
+    unsigned long n_4 = n * 4;
+    unsigned long n_5 = n * 5;
+
+#if (__GNUC__ == 4) && (__GNUC_MINOR__ == 9)
+    // force register
+    __asm__ __volatile__(" "
+                         :"+r"(n_1),
+                          "+r"(n_2),
+                          "+r"(n_3),
+                          "+r"(n_4),
+                          "+r"(n_5)
+        );
+#endif
+
+    for (o_bhi=i_start; o_bhi<i_end; o_bhi++) {
+        __m256 o00=_mm256_setzero_ps(), o01=_mm256_setzero_ps();
+        __m256 o10=_mm256_setzero_ps(), o11=_mm256_setzero_ps();
+        __m256 o20=_mm256_setzero_ps(), o21=_mm256_setzero_ps();
+        __m256 o30=_mm256_setzero_ps(), o31=_mm256_setzero_ps();
+        __m256 o40=_mm256_setzero_ps(), o41=_mm256_setzero_ps();
+        __m256 o50=_mm256_setzero_ps(), o51=_mm256_setzero_ps();
+
+        const float *pl0 = inL;
+        const float * __restrict Rline = inR + o_bhi * O_BLKSIZE_HOR;
+        __m256 *tR = (__m256*)tR_base;
+
+#define pl1 pl0+n_1
+#define pl2 pl0+n_2
+#define pl3 pl0+n_3
+#define pl4 pl0+n_4
+#define pl5 pl0+n_5
+
+        for (l_hi=0; l_hi<n; l_hi++) {
+            r0 = _mm256_loadu_ps(Rline + 0);
+            r1 = _mm256_loadu_ps(Rline + 8);
+
+            Rline += n;
+
+            l0 = _mm256_broadcast_ss(pl0);
+            o00 = _mm256_fmadd_ps(l0, r0, o00);
+            o01 = _mm256_fmadd_ps(l0, r1, o01);
+
+            l1 = _mm256_broadcast_ss(pl1);
+            o10 = _mm256_fmadd_ps(l1, r0, o10);
+            o11 = _mm256_fmadd_ps(l1, r1, o11);
+
+            l2 = _mm256_broadcast_ss(pl2);
+            o20 = _mm256_fmadd_ps(l2, r0, o20);
+            o21 = _mm256_fmadd_ps(l2, r1, o21);
+
+            l3 = _mm256_broadcast_ss(pl3);
+            o30 = _mm256_fmadd_ps(l3, r0, o30);
+            o31 = _mm256_fmadd_ps(l3, r1, o31);
+
+            l4 = _mm256_broadcast_ss(pl4);
+            o40 = _mm256_fmadd_ps(l4, r0, o40);
+            o41 = _mm256_fmadd_ps(l4, r1, o41);
+
+            l5 = _mm256_broadcast_ss(pl5);
+            o50 = _mm256_fmadd_ps(l5, r0, o50);
+            o51 = _mm256_fmadd_ps(l5, r1, o51);
+
+            *(tR++) = r0;
+            *(tR++) = r1;
+
+            pl0++;
+        }
+
+        float * __restrict out_base = out + o_bhi * O_BLKSIZE_HOR;
+
+        _mm256_storeu_ps(out_base+n*0+0,  o00);
+        _mm256_storeu_ps(out_base+n*0+8,  o01);
+
+        _mm256_storeu_ps(out_base+n*1+0,  o10);
+        _mm256_storeu_ps(out_base+n*1+8,  o11);
+
+        _mm256_storeu_ps(out_base+n*2+0,  o20);
+        _mm256_storeu_ps(out_base+n*2+8,  o21);
+
+        _mm256_storeu_ps(out_base+n*3+0,  o30);
+        _mm256_storeu_ps(out_base+n*3+8,  o31);
+
+        _mm256_storeu_ps(out_base+n*4+0,  o40);
+        _mm256_storeu_ps(out_base+n*4+8,  o41);
+
+        _mm256_storeu_ps(out_base+n*5+0,  o50);
+        _mm256_storeu_ps(out_base+n*5+8,  o51);
+
+        for (o_bvi=1; o_bvi<num_oblk_ver; o_bvi++) {
+            __m256 o00=_mm256_setzero_ps(), o01=_mm256_setzero_ps();
+            __m256 o10=_mm256_setzero_ps(), o11=_mm256_setzero_ps();
+            __m256 o20=_mm256_setzero_ps(), o21=_mm256_setzero_ps();
+            __m256 o30=_mm256_setzero_ps(), o31=_mm256_setzero_ps();
+            __m256 o40=_mm256_setzero_ps(), o41=_mm256_setzero_ps();
+            __m256 o50=_mm256_setzero_ps(), o51=_mm256_setzero_ps();
+
+            const float *pl0 = inL + o_bvi * O_BLKSIZE_VER * n;
+            const float * __restrict Rline = tR_base;
+            //const float * __restrict Rline = inR + o_bhi * O_BLKSIZE_HOR;
+
+            for (l_hi=0; l_hi<n; l_hi++) {
+                r0 = _mm256_loadu_ps(Rline + 0);
+                r1 = _mm256_loadu_ps(Rline + 8);
+
+                Rline += 8*2;
+                //Rline += n;
+
+                l0 = _mm256_broadcast_ss(pl0);
+                o00 = _mm256_fmadd_ps(l0, r0, o00);
+                o01 = _mm256_fmadd_ps(l0, r1, o01);
+
+                l1 = _mm256_broadcast_ss(pl1);
+                o10 = _mm256_fmadd_ps(l1, r0, o10);
+                o11 = _mm256_fmadd_ps(l1, r1, o11);
+
+                l2 = _mm256_broadcast_ss(pl2);
+                o20 = _mm256_fmadd_ps(l2, r0, o20);
+                o21 = _mm256_fmadd_ps(l2, r1, o21);
+
+                l3 = _mm256_broadcast_ss(pl3);
+                o30 = _mm256_fmadd_ps(l3, r0, o30);
+                o31 = _mm256_fmadd_ps(l3, r1, o31);
+
+                l4 = _mm256_broadcast_ss(pl4);
+                o40 = _mm256_fmadd_ps(l4, r0, o40);
+                o41 = _mm256_fmadd_ps(l4, r1, o41);
+
+                l5 = _mm256_broadcast_ss(pl5);
+                o50 = _mm256_fmadd_ps(l5, r0, o50);
+                o51 = _mm256_fmadd_ps(l5, r1, o51);
+
+                pl0++;
+            }
+
+            float * __restrict out_base = out + o_bhi * O_BLKSIZE_HOR + (o_bvi * O_BLKSIZE_VER * n);
+
+            _mm256_storeu_ps(out_base+n*0+0,  o00);
+            _mm256_storeu_ps(out_base+n*0+8,  o01);
+
+            _mm256_storeu_ps(out_base+n*1+0,  o10);
+            _mm256_storeu_ps(out_base+n*1+8,  o11);
+
+            _mm256_storeu_ps(out_base+n*2+0,  o20);
+            _mm256_storeu_ps(out_base+n*2+8,  o21);
+
+            _mm256_storeu_ps(out_base+n*3+0,  o30);
+            _mm256_storeu_ps(out_base+n*3+8,  o31);
+
+            _mm256_storeu_ps(out_base+n*4+0,  o40);
+            _mm256_storeu_ps(out_base+n*4+8,  o41);
+
+            _mm256_storeu_ps(out_base+n*5+0,  o50);
+            _mm256_storeu_ps(out_base+n*5+8,  o51);
+        }
+    }
+}
+
 #else
 
 #define O_BLKSIZE_HOR (8U * 4U)
