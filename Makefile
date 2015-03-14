@@ -30,6 +30,7 @@ RM=/bin/rm
 
 endif
 
+SAVE_TEMPS=1
 ifdef SAVE_TEMPS
 	CFLAGS_COMMON+=-save-temps=obj
 endif

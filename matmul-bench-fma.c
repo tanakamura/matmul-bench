@@ -218,22 +218,11 @@ fma_thread(struct MatmulBenchParam *p,
     __m256 l0, l1, l2, l3, l4, l5;
     __m256 r0, r1;
 
-    unsigned long n_1 = n * 1;
-    unsigned long n_2 = n * 2;
-    unsigned long n_3 = n * 3;
-    unsigned long n_4 = n * 4;
-    unsigned long n_5 = n * 5;
-
-#if (__GNUC__ == 4) && (__GNUC_MINOR__ == 9)
-    // force register
-    __asm__ __volatile__(" "
-                         :"+r"(n_1),
-                          "+r"(n_2),
-                          "+r"(n_3),
-                          "+r"(n_4),
-                          "+r"(n_5)
-        );
-#endif
+    unsigned long n_1 = n * 1 * sizeof(float);
+    unsigned long n_2 = n * 2 * sizeof(float);
+    unsigned long n_3 = n * 3 * sizeof(float);
+    unsigned long n_4 = n * 4 * sizeof(float);
+    unsigned long n_5 = n * 5 * sizeof(float);
 
     for (o_bhi=i_start; o_bhi<i_end; o_bhi++) {
         __m256 o00=_mm256_setzero_ps(), o01=_mm256_setzero_ps();
@@ -247,11 +236,11 @@ fma_thread(struct MatmulBenchParam *p,
         const float * __restrict Rline = inR + o_bhi * O_BLKSIZE_HOR;
         __m256 *tR = (__m256*)tR_base;
 
-#define pl1 pl0+n_1
-#define pl2 pl0+n_2
-#define pl3 pl0+n_3
-#define pl4 pl0+n_4
-#define pl5 pl0+n_5
+#define pl1 (float*)(((char*)pl0)+n_1)
+#define pl2 (float*)(((char*)pl0)+n_2)
+#define pl3 (float*)(((char*)pl0)+n_3)
+#define pl4 (float*)(((char*)pl0)+n_4)
+#define pl5 (float*)(((char*)pl0)+n_5)
 
         for (l_hi=0; l_hi<n; l_hi++) {
             r0 = _mm256_loadu_ps(Rline + 0);
@@ -321,38 +310,58 @@ fma_thread(struct MatmulBenchParam *p,
             const float * __restrict Rline = tR_base;
             //const float * __restrict Rline = inR + o_bhi * O_BLKSIZE_HOR;
 
-            for (l_hi=0; l_hi<n; l_hi++) {
-                r0 = _mm256_loadu_ps(Rline + 0);
-                r1 = _mm256_loadu_ps(Rline + 8);
+            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n, _MM_HINT_T0);
+            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_1, _MM_HINT_T0);
+            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_2, _MM_HINT_T0);
+            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_3, _MM_HINT_T0);
+            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_4, _MM_HINT_T0);
+            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_5, _MM_HINT_T0);
 
-                Rline += 8*2;
-                //Rline += n;
+            for (l_hi=0; l_hi<n; l_hi+=8) {
 
-                l0 = _mm256_broadcast_ss(pl0);
-                o00 = _mm256_fmadd_ps(l0, r0, o00);
-                o01 = _mm256_fmadd_ps(l0, r1, o01);
+#define MUL_6x2(offset)                                 \
+                r0 = _mm256_loadu_ps(Rline + 0);        \
+                r1 = _mm256_loadu_ps(Rline + 8);        \
+                                                        \
+                Rline += 8*2;                           \
+                                                        \
+                l0 = _mm256_broadcast_ss(pl0+offset);   \
+                o00 = _mm256_fmadd_ps(l0, r0, o00);     \
+                o01 = _mm256_fmadd_ps(l0, r1, o01);     \
+                                                        \
+                l1 = _mm256_broadcast_ss(pl1+offset);   \
+                o10 = _mm256_fmadd_ps(l1, r0, o10);     \
+                o11 = _mm256_fmadd_ps(l1, r1, o11);     \
+                                                        \
+                l2 = _mm256_broadcast_ss(pl2+offset);   \
+                o20 = _mm256_fmadd_ps(l2, r0, o20);     \
+                o21 = _mm256_fmadd_ps(l2, r1, o21);     \
+                                                        \
+                l3 = _mm256_broadcast_ss(pl3+offset);   \
+                o30 = _mm256_fmadd_ps(l3, r0, o30);     \
+                o31 = _mm256_fmadd_ps(l3, r1, o31);     \
+                                                        \
+                l4 = _mm256_broadcast_ss(pl4+offset);   \
+                o40 = _mm256_fmadd_ps(l4, r0, o40);     \
+                o41 = _mm256_fmadd_ps(l4, r1, o41);     \
+                                                        \
+                l5 = _mm256_broadcast_ss(pl5+offset);   \
+                o50 = _mm256_fmadd_ps(l5, r0, o50);     \
+                o51 = _mm256_fmadd_ps(l5, r1, o51);     \
+                                                        \
+                __asm__ __volatile__(" ":"+r"(n_1),"+r"(n_2),"+r"(n_3),"+r"(n_4),"+r"(n_5));
 
-                l1 = _mm256_broadcast_ss(pl1);
-                o10 = _mm256_fmadd_ps(l1, r0, o10);
-                o11 = _mm256_fmadd_ps(l1, r1, o11);
+                MUL_6x2(0);
+                MUL_6x2(1);
+                MUL_6x2(2);
+                MUL_6x2(3);
 
-                l2 = _mm256_broadcast_ss(pl2);
-                o20 = _mm256_fmadd_ps(l2, r0, o20);
-                o21 = _mm256_fmadd_ps(l2, r1, o21);
+                MUL_6x2(4);
+                MUL_6x2(5);
+                MUL_6x2(6);
+                MUL_6x2(7);
 
-                l3 = _mm256_broadcast_ss(pl3);
-                o30 = _mm256_fmadd_ps(l3, r0, o30);
-                o31 = _mm256_fmadd_ps(l3, r1, o31);
-
-                l4 = _mm256_broadcast_ss(pl4);
-                o40 = _mm256_fmadd_ps(l4, r0, o40);
-                o41 = _mm256_fmadd_ps(l4, r1, o41);
-
-                l5 = _mm256_broadcast_ss(pl5);
-                o50 = _mm256_fmadd_ps(l5, r0, o50);
-                o51 = _mm256_fmadd_ps(l5, r1, o51);
-
-                pl0++;
+                pl0+=8;
             }
 
             float * __restrict out_base = out + o_bhi * O_BLKSIZE_HOR + (o_bvi * O_BLKSIZE_VER * n);
