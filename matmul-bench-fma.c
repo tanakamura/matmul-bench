@@ -308,14 +308,6 @@ fma_thread(struct MatmulBenchParam *p,
 
             const float *pl0 = inL + o_bvi * O_BLKSIZE_VER * n;
             const float * __restrict Rline = tR_base;
-            //const float * __restrict Rline = inR + o_bhi * O_BLKSIZE_HOR;
-
-            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n, _MM_HINT_T0);
-            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_1, _MM_HINT_T0);
-            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_2, _MM_HINT_T0);
-            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_3, _MM_HINT_T0);
-            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_4, _MM_HINT_T0);
-            //_mm_prefetch(pl0 + (o_bvi+1) * O_BLKSIZE_VER * n+n_5, _MM_HINT_T0);
 
             for (l_hi=0; l_hi<n; l_hi+=8) {
 
