@@ -319,7 +319,7 @@ fma_thread(struct MatmulBenchParam *p,
 
             for (l_hi=0; l_hi<n; l_hi+=8) {
 
-#define MUL_6x2(offset)                                 \
+#define MUL_2x6(offset)                                 \
                 r0 = _mm256_loadu_ps(Rline + 0);        \
                 r1 = _mm256_loadu_ps(Rline + 8);        \
                                                         \
@@ -351,15 +351,15 @@ fma_thread(struct MatmulBenchParam *p,
                                                         \
                 __asm__ __volatile__(" ":"+r"(n_1),"+r"(n_2),"+r"(n_3),"+r"(n_4),"+r"(n_5));
 
-                MUL_6x2(0);
-                MUL_6x2(1);
-                MUL_6x2(2);
-                MUL_6x2(3);
+                MUL_2x6(0);
+                MUL_2x6(1);
+                MUL_2x6(2);
+                MUL_2x6(3);
 
-                MUL_6x2(4);
-                MUL_6x2(5);
-                MUL_6x2(6);
-                MUL_6x2(7);
+                MUL_2x6(4);
+                MUL_2x6(5);
+                MUL_2x6(6);
+                MUL_2x6(7);
 
                 pl0+=8;
             }
