@@ -33,7 +33,12 @@
 #include <sys/eventfd.h>
 #endif
 
-#ifdef _WIN32
+
+#if defined _WIN32 || defined _WIN64 || defined __MSYS__
+#define WINDOWS
+#endif
+
+#ifdef WINDOWS
 #include <windows.h>
 #include <process.h>
 
@@ -182,7 +187,7 @@ thread_func(void *ap)
     return NULL;
 }
 
-#ifdef _WIN32
+#ifdef WINDOWS
 static unsigned __stdcall
 thread_func_w32(void *ap)
 {
@@ -196,7 +201,7 @@ matmul_bench_init(unsigned int num_thread)
 {
     struct MatmulBench *ret = malloc(sizeof(struct MatmulBench));
 
-#ifdef _WIN32
+#ifdef WINDOWS
     InitOnceExecuteOnce(&g_InitOnce, init1,
                         NULL, NULL);
 #endif
@@ -381,7 +386,7 @@ matmul_bench_init(unsigned int num_thread)
 
 #endif
 
-#ifdef _WIN32
+#ifdef WINDOWS
     if (num_thread == 0) {
         SYSTEM_INFO si;
 
@@ -407,7 +412,7 @@ matmul_bench_init(unsigned int num_thread)
         a->b = ret;
         a->thread_id = ti;
 
-#ifdef _WIN32
+#ifdef WINDOWS 
         unsigned int threadID;
 
         a->from_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -421,7 +426,7 @@ matmul_bench_init(unsigned int num_thread)
     }
 
 
-#ifdef _WIN32
+#ifdef WINDOWS
     pl->to_master_ev = CreateEvent(NULL, FALSE, FALSE, NULL);
 #else
     pl->to_master_ev = eventfd(0,0);
@@ -450,7 +455,7 @@ matmul_bench_fini(struct MatmulBench *mb)
     }
 
     for (int ti=0; ti<num_thread; ti++) {
-#ifdef _WIN32
+#ifdef WINDOWS
         WaitForSingleObject(pl->args[ti].thread, INFINITE);
         CloseHandle(pl->args[ti].thread);
         CloseHandle(pl->args[ti].from_master_ev);
