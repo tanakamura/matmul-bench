@@ -30,6 +30,8 @@ RM=/bin/rm
 
 endif
 
+find_executable = $(firstword $(foreach a, $(1), $(shell $(WHICH) ${a} 2>/dev/null)))
+
 SAVE_TEMPS=1
 ifdef SAVE_TEMPS
 	CFLAGS_COMMON+=-save-temps=obj
@@ -37,7 +39,7 @@ endif
 
 ARM_ANDROID_GCC=${ANDROID_TOOLCHAIN}/arm-linux-androideabi-gcc
 ARM_LINUX_GCC=arm-linux-gnueabihf-gcc
-AARCH64_LINUX_GCC=aarch64-linux-gnu-gcc
+AARCH64_LINUX_GCC=$(call find_executable, aarch64-linux-gnu-gcc aarch64-unknown-linux-gnu-gcc)
 X86_64_LINUX_GCC=x86_64-linux-gnu-gcc
 X86_64_MINGW64_GCC=x86_64-w64-mingw32-gcc
 X86_MINGW32_GCC=i686-w64-mingw32-gcc
@@ -64,6 +66,9 @@ LINUX_LDLIBS=-lrt
 ALL_SRCS=${BENCH_SRCS} matmul-bench-main.c
 
 define genarch # $(1):arch-name  $(2):cross-compiler $(3):additional-src $(4):additional-ldlibs
+
+ifneq ("$(shell $(WHICH) ${2} 2>/dev/null)","")
+
 $(1)_EXE_OBJS=$(patsubst %.c,$(CURDIR)/obj/$(1)/%.o,${BENCH_SRCS} $(3) matmul-bench-main.c)
 $(1)_LIB_OBJS=$(patsubst %.c,$(CURDIR)/obj/$(1)/%.o,${BENCH_SRCS} $(3))
 
@@ -93,31 +98,15 @@ CLEAN_TARGETS+=$(CURDIR)/obj/$(1) $(CURDIR)/dll/$(1)
 ALL_TARGET+=matmul-bench-$(1) dll/$(1)/libmatmul-bench.so
 ALL_SRCS+=$(3)
 
+endif
+
 endef
 
-ifneq ("$(shell $(WHICH) ${X86_64_LINUX_GCC})","")
 $(eval $(call genarch,x86_64-linux,$(X86_64_LINUX_GCC), $(X86_SIMD_SRCS), $(LINUX_LDLIBS)))
-endif
-
-ifneq ("$(shell $(WHICH) ${X86_64_MINGW64_GCC})","")
 $(eval $(call genarch,w64,${X86_64_MINGW64_GCC}, $(X86_SIMD_SRCS), ))
-endif
-
-ifneq ("$(shell $(WHICH) ${X86_MINGW32_GCC})","")
 $(eval $(call genarch,w32,${X86_MINGW32_GCC}, $(X86_SIMD_SRCS), ))
-endif
-
-ifneq ("$(shell $(WHICH) ${ARM_LINUX_GCC})","")
 $(eval $(call genarch,arm-linux,${ARM_LINUX_GCC}, $(ARM_SIMD_SRCS), ))
-endif
-
-ifneq ("$(shell $(WHICH) ${AARCH64_LINUX_GCC})","")
 $(eval $(call genarch,aarch64-linux,$(AARCH64_LINUX_GCC), , $(LINUX_LDLIBS)))
-endif
-
-#ifneq ("$(shell $(WHICH) ${ARM_ANDROID_GCC})","")
-#ALL_TARGET+=matmul-bench-arm-android dll/arm-android/libmatmul-bench.so
-#endif
 
 all2: ${ALL_TARGET}
 
@@ -138,3 +127,4 @@ clean: $(RM)
 	$(RM) -rf obj dll $(ALL_TARGET)
 
 -include $(ALL_OBJS:.o=.d)
+
