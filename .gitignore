@@ -16,5 +16,10 @@ matmul-bench
 *.so
 *.res
 matmul-bench-arm-linux
+matmul-bench-aarch64-linux
 matmul-bench-arm-android
 matmul-bench-x86_64-linux
+matmul-bench-w32
+matmul-bench-w64
+dll
+obj

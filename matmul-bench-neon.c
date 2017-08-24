@@ -178,7 +178,8 @@ neon_(unsigned int i00,
 static void
 neon_thread(struct MatmulBenchParam *p,
             unsigned long i_start,
-            unsigned long i_end)
+            unsigned long i_end,
+            unsigned int thread_id)
 {
     float * __restrict out = p->out;
     const float * __restrict inL_plus1line = p->inL_plus1line;
@@ -199,7 +200,6 @@ neon_thread(struct MatmulBenchParam *p,
             }
         }
     }
-    
 }
 
 static void

@@ -19,8 +19,13 @@
 #define wmb() __asm__ __volatile__ ("":::"memory")
 #endif
 
-#ifdef __arm__
+#if (defined __arm__)
 #define rmb() __asm__ __volatile__ ("dsb":::"memory")
+#define wmb() __asm__ __volatile__ ("dsb st":::"memory")
+#endif
+
+#if (defined __aarch64__)
+#define rmb() __asm__ __volatile__ ("dsb ld":::"memory")
 #define wmb() __asm__ __volatile__ ("dsb st":::"memory")
 #endif
 
